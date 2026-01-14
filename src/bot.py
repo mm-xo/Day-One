@@ -1,14 +1,7 @@
-import os
 import discord
 from discord import app_commands
 from discord.ext import commands
-from dotenv import load_dotenv
-
-load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
-
-if not TOKEN:
-    raise RuntimeError("Missing DISCORD_TOKEN in .env")
+import config
 
 intents = discord.Intents.default()
 
@@ -22,7 +15,7 @@ class HabitBot(commands.Bot):
     #     print("Command tree synced")
 
     async def setup_hook(self):
-        guild_id = int(os.getenv("DEV_GUILD_ID", "0"))
+        guild_id = int(config.DEV_GUILD_ID)
         if guild_id:
             guild = discord.Object(id=guild_id)
             self.tree.copy_global_to(guild=guild)
@@ -42,4 +35,4 @@ async def on_ready():
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message("pong", ephemeral=True)
 
-bot.run(TOKEN)
+bot.run(config.DISCORD_TOKEN)
