@@ -1,14 +1,6 @@
 import sqlite3
-from pathlib import Path
+from db_helpers import BASE_DIR, get_db_connection
 
-BASE_DIR = Path(__file__).resolve().parent.parent # project root directory
-DB_PATH = BASE_DIR / "data" / "day_one.db"
-
-def get_db_connection():
-    DB_PATH.parent.mkdir(exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
 
 def init():
     conn = get_db_connection()
@@ -20,46 +12,3 @@ def init():
     conn.commit()
     conn.close()
 
-
-def execute(sql, params=()):
-    conn = get_db_connection()
-    cursor = conn.execute(sql, params)
-    conn.commit()
-    conn.close()
-    # return cursor
-
-def fetchone(sql, params=()):
-    conn = get_db_connection()
-    cursor = conn.execute(sql, params)
-    row = cursor.fetchone()
-    conn.close()
-    return row
-
-def fetchall(sql, params=()):
-    conn = get_db_connection()
-    cursor = conn.execute(sql, params)
-    rows = cursor.fetchall()
-    conn.close()
-    return rows
-
-# Learning
-
-# cur.execute("""CREATE TABLE customers(
-#         first_name text,
-#         last_name text,
-#         email text
-#     )""")
-
-# Insert a record
-
-# cur.execute("INSERT INTO customers VALUES ('John', 'Elder', 'john@email.com')")
-# cur.execute("INSERT INTO customers VALUES ('tip', 'mum', 'tip@email.com')")
-# cur.execute("INSERT INTO customers VALUES ('Mary', 'brown', 'mary@email.com')")
-
-# Insert many records into the table
-
-# many_customers = [('Wes', 'Brown', 'Wes@email.com'),
-#                 ('Steph', 'Kuewa', 'steph@email.com'),
-#                 ('Dan', 'Danny', 'Dan@email.com')]
-
-# cur.executemany("INSERT INTO customers VALUES (?,?,?)", many_customers)
