@@ -1,8 +1,8 @@
 import discord
-from discord import app_commands
 from discord.ext import commands
 import config
 import database
+from commands.groups import group as groups_command_group
 
 intents = discord.Intents.default()
 
@@ -16,6 +16,9 @@ class HabitBot(commands.Bot):
     #     print("Command tree synced")
 
     async def setup_hook(self):
+        
+        self.tree.add_command(groups_command_group)
+        
         guild_id = int(config.DEV_GUILD_ID)
         if guild_id:
             guild = discord.Object(id=guild_id)
