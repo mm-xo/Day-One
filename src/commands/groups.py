@@ -1,4 +1,6 @@
 import discord
+import sqlite3
+from traceback import print_exc
 import db_helpers
 from discord import app_commands
 from commands.command_helpers import validate_role, get_utc_now_iso
@@ -27,24 +29,32 @@ async def create_group(interaction: discord.Interaction, name: str):
     
     member = interaction.user
     if validate_role(member, ["Admin", "Mod"]):
-        group_name = name
+        group_name = name.strip().upper()
         guild_id = interaction.guild_id
         created_by = interaction.user.id
         created_at = get_utc_now_iso()
-        
-        db_helpers.execute(
-            "INSERT INTO habit_groups (guild_id, name, created_by, created_at) VALUES (?,?,?,?)",
-            (guild_id, group_name, created_by, created_at)
-        )
+        try:
+            db_helpers.execute(
+                "INSERT INTO habit_groups (guild_id, name, created_by, created_at) VALUES (?,?,?,?)",
+                (guild_id, group_name, created_by, created_at)
+            )
+        except sqlite3.IntegrityError as e:
+            # ungraceful error for dev
+            print(f"DB IntegrityError while creating habit group **{group_name}**.")
+            print_exc()
+            
+            # graceful error for user
+            await interaction.response.send_message(f"A group with name {group_name} already exists in this server.", ephemeral=True)
+            return
+
         # test
         row = db_helpers.fetchone(
             "SELECT id, guild_id, name, created_by, created_at FROM habit_groups WHERE guild_id=? AND name=?",
-            (guild_id, name),
+            (guild_id, group_name),
         )
-    
         print("Inserted row:", dict(row) if row else None)
         
     else:
-        interaction.response.send_message("You need Admin/Mod to create a group", ephemeral=True)
+        await interaction.response.send_message("You need Admin/Mod to create a group", ephemeral=True)
         
-    await interaction.response.send_message(f"Day-One for **{name}** has started!")
+    await interaction.response.send_message(f"Day-One for **{group_name}** has started!")
