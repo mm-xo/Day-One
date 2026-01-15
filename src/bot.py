@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import config
+import database
 
 intents = discord.Intents.default()
 
@@ -29,7 +30,9 @@ bot = HabitBot()
 
 @bot.event
 async def on_ready():
+    database.init()
     print(f"Logged in as {bot.user} (id={bot.user.id})")
+    
 
 @bot.tree.command(name="ping", description="Check if the bot is alive.")
 async def ping(interaction: discord.Interaction):
