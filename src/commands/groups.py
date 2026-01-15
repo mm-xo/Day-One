@@ -89,4 +89,4 @@ async def create_group(interaction: discord.Interaction, name: str):
     else:
         await interaction.response.send_message("You need Admin/Mod to create a group", ephemeral=True)
         
-    await interaction.response.send_message(f"Day One for **{group_name}** has started!")
+    await interaction.response.send_message(f"Day One for **{group_name}** has started!", ephemeral=False)
