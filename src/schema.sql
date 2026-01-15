@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS habit_groups (
 
 -- Group members
 CREATE TABLE IF NOT EXISTS group_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id TEXT NOT NULL,
     group_id INTEGER NOT NULL,
     user_id TEXT NOT NULL,
     joined_at TEXT NOT NULL,
@@ -21,7 +23,7 @@ CREATE TABLE IF NOT EXISTS group_members (
     FOREIGN KEY (group_id) REFERENCES habit_groups(id) ON DELETE CASCADE,
     -- Every group_id in this table must refer to a real row in habit_groups,
     -- and if that group is deleted, automatically delete these rows too.
-    UNIQUE (group_id, user_id)
+    UNIQUE (group_id, user_id) -- same user cannot join a group more than once
 );
 
 -- Check-ins
