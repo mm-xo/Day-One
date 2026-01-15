@@ -2,6 +2,7 @@ import discord
 import sqlite3
 from traceback import print_exc
 import db_helpers
+import database
 from discord import app_commands
 from commands.command_helpers import validate_role, get_utc_now_iso
 # /src is the import root, so commands is a package and command_helpers is a module inside it
@@ -34,10 +35,7 @@ async def create_group(interaction: discord.Interaction, name: str):
         created_by = interaction.user.id
         created_at = get_utc_now_iso()
         try:
-            db_helpers.execute(
-                "INSERT INTO habit_groups (guild_id, name, created_by, created_at) VALUES (?,?,?,?)",
-                (guild_id, group_name, created_by, created_at)
-            )
+            database.db_create_group(guild_id, group_name, created_by, created_at)
         except sqlite3.IntegrityError as e:
             # ungraceful error for dev
             print(f"DB IntegrityError while creating habit group **{group_name}**.")
