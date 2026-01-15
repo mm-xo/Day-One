@@ -10,7 +10,11 @@ def init():
     print("Database initialized successfully!")
     conn.commit()
     conn.close()
+    
 
+# ================================================================
+# HABIT GROUP CRUD
+# ================================================================
 def db_create_group(guild_id, group_name, created_by, created_at):
     db_helpers.execute(
         "INSERT INTO habit_groups (guild_id, name, created_by, created_at) VALUES (?,?,?,?)",
@@ -33,3 +37,20 @@ def db_get_guild_groups(guild_id):
         "SELECT id, guild_id, name, created_by, created_at FROM habit_groups WHERE guild_id=?",
         (guild_id)
     )
+    # TODO return member count with each group
+
+
+# TODO delete group (row from habit_groups table)
+
+# ================================================================
+
+
+# ================================================================
+# GROUP MEMBERSHIP CRUD
+# ================================================================
+def db_create_member(guild_id, group_id, user_id, joined_at):
+    db_helpers.execute(
+        "INSERT INTO group_members (guild_id, group_id, user_id, joined_at) VALUES (?,?,?,?)",
+        (guild_id, group_id, user_id, joined_at)
+    )
+    return True

@@ -12,6 +12,40 @@ group = app_commands.Group(
     description="Day-One habit-group management commands"
 )
 
+@group.command(name="join", description="Join a new habit group")
+async def join_group(interaction: discord.Interaction, name: str):
+    if interaction.guild is None:
+        await interaction.response.send_message("Use this command in a server.", ephemeral=True)
+        return
+    
+    member = interaction.user # if someone uses this command in a guild, they are sure to be a member of the guild
+    user_display_name = member.display_name
+    group_name = name.strip().upper()
+    # need guild_id, group_id, user_id, and joined_at utc time (for now)
+    guild_id = interaction.guild_id
+    group_id = database.db_get_group_by_name(guild_id, group_name)["id"]
+    user_id = member.id
+    joined_at = get_utc_now_iso() # TODO maybe time it after the code for inserting user into the group table is successful
+    
+    try:
+        database.db_create_member(guild_id, group_id, user_id, joined_at)
+    except sqlite3.IntegrityError as e:
+        print(f"DB IntegrityError while joining group **{group_name}**.")
+        print_exc()
+        
+        await interaction.response.send_message(f"User: {user_id} already exists in **{group_name}**.", ephemeral=True)
+        return
+    else:
+        await interaction.response.send_message(f"{user_display_name} just started Day One in **{group_name}**", ephemeral=False)
+
+    #test
+    row = db_helpers.fetchone(
+        "SELECT id, guild_id, group_id, user_id, joined_at FROM group_members WHERE guild_id=? AND group_id=?",
+        (guild_id, group_id)
+    )
+    print("Inserted member:", dict(row) if row else None)
+
+
 @group.command(name="create", description="Create a new habit group")
 async def create_group(interaction: discord.Interaction, name: str):
     # TODO code functionality for group creation.
@@ -55,4 +89,4 @@ async def create_group(interaction: discord.Interaction, name: str):
     else:
         await interaction.response.send_message("You need Admin/Mod to create a group", ephemeral=True)
         
-    await interaction.response.send_message(f"Day-One for **{group_name}** has started!")
+    await interaction.response.send_message(f"Day One for **{group_name}** has started!")
