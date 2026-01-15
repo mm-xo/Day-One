@@ -20,6 +20,28 @@ def init():
     conn.commit()
     conn.close()
 
+
+def execute(sql, params=()):
+    conn = get_db_connection()
+    cursor = conn.execute(sql, params)
+    conn.commit()
+    conn.close()
+    # return cursor
+
+def fetchone(sql, params=()):
+    conn = get_db_connection()
+    cursor = conn.execute(sql, params)
+    row = cursor.fetchone()
+    conn.close()
+    return row
+
+def fetchall(sql, params=()):
+    conn = get_db_connection()
+    cursor = conn.execute(sql, params)
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
 # Learning
 
 # cur.execute("""CREATE TABLE customers(
