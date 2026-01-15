@@ -1,4 +1,3 @@
-import sqlite3
 from db_helpers import BASE_DIR, get_db_connection
 
 
