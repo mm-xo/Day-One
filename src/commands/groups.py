@@ -12,6 +12,19 @@ group = app_commands.Group(
     description="Day-One habit-group management commands"
 )
 
+@group.command(name="leave", description="Leave a habit group")
+async def leave_group(interaction: discord.Interaction, name: str):
+    if interaction.guild is None:
+        await interaction.response.send_message("Use this command in a server.", ephemeral=True)
+        return
+    
+    member = interaction.user
+    group_name = name.strip().upper()
+    guild_id = interaction.guild.id
+    group_id = database.db_get_group_by_name(guild_id, group_name)["id"]
+    user_id = member.id
+    # TODO think about what you want to do with checkins and streaks (just reset streaks) after a user leaves
+
 @group.command(name="join", description="Join a new habit group")
 async def join_group(interaction: discord.Interaction, name: str):
     if interaction.guild is None:
