@@ -1,9 +1,19 @@
 import sqlite3
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent # project root directory
+DB_PATH = BASE_DIR / "data" / "day_one.db"
+
+def get_db_connection():
+    DB_PATH.parent.mkdir(exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def init():
-    conn = sqlite3.connect("data/day_one.db")
+    conn = get_db_connection()
     # cur = conn.cursor()
-    with open("src/schema.sql") as f:
+    with open(BASE_DIR / "src/schema.sql") as f:
         conn.executescript(f.read())
     
     print("Database initialized successfully!")
