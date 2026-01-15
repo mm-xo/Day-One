@@ -41,4 +41,6 @@ async def on_ready():
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message("pong", ephemeral=True)
 
+# TODO Create a help command with usage info
+
 bot.run(config.DISCORD_TOKEN)
