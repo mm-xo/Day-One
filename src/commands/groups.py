@@ -4,7 +4,9 @@ from traceback import print_exc
 import db_helpers
 import database
 from discord import app_commands
-from commands.command_helpers import validate_role, get_utc_now_iso
+from utils.command_helpers import validate_role
+from utils.getters import get_user_id, get_display_name, get_guild_id
+from utils.time import get_utc_now_iso
 # /src is the import root, so commands is a package and command_helpers is a module inside it
 
 group = app_commands.Group(
@@ -18,11 +20,11 @@ async def leave_group(interaction: discord.Interaction, name: str):
         await interaction.response.send_message("Use this command in a server.", ephemeral=True)
         return
     
-    member = interaction.user
+    # member = interaction.user
     group_name = name.strip().upper()
-    guild_id = interaction.guild.id
+    guild_id = get_guild_id(interaction)
     group_id = database.db_get_group_by_name(guild_id, group_name)["id"]
-    user_id = member.id
+    user_id = get_user_id(interaction)
     # TODO think about what you want to do with checkins and streaks (just reset streaks) after a user leaves
 
 @group.command(name="join", description="Join a new habit group")
@@ -33,19 +35,26 @@ async def join_group(interaction: discord.Interaction, name: str):
         await interaction.response.send_message("Use this command in a server.", ephemeral=True)
         return
     
-    member = interaction.user # if someone uses this command in a guild, they are sure to be a member of the guild
-    user_display_name = member.display_name
+    # member = interaction.user 
+    # user_display_name = member.display_name
+    user_display_name = get_display_name(interaction)
     group_name = name.strip().upper()
     # need guild_id, group_id, user_id, and joined_at utc time (for now)
     guild_id = interaction.guild_id
     group_id = database.db_get_group_by_name(guild_id, group_name)["id"]
-    user_id = member.id
+    # user_id = member.id # TODO use function from command_helpers
+    user_id = get_user_id(interaction)
     joined_at = get_utc_now_iso() # TODO maybe time it after the code for inserting user into the group table is successful
+    created_at = joined_at
     # timezone = "NULL" # TODO
     
     try:
-        database.db_create_member(guild_id, group_id, user_id, joined_at)
-        database.db_add_user(user_id, get_utc_now_iso())
+        # timezone= None, database defaults to UTC timezone for the user.
+        # TODO add user to db in a separate try/catch (or conditional)
+        # TODO check if user already exists, and if or not they have timezone set. If timezone=UTC in db, DM/ephemeral=True and ask for tz
+        database.db_add_user(user_id, created_at, timezone=None) # add user to the db
+        
+        database.db_create_member(guild_id, group_id, user_id, joined_at) # add user to the habit group
     except sqlite3.IntegrityError as e:
         print(f"DB IntegrityError while joining group **{group_name}**.")
         print_exc()
@@ -83,11 +92,11 @@ async def create_group(interaction: discord.Interaction, name: str):
     # insert group to db
     # member = interaction.guild.get_member(interaction.user.id) # users are global, members are guild specific    
     
-    member = interaction.user
-    if validate_role(member, ["Admin", "Mod"]):
+    # member = interaction.user
+    if validate_role(interaction, ["Admin", "Mod"]):
         group_name = name.strip().upper()
-        guild_id = interaction.guild_id
-        created_by = interaction.user.id
+        guild_id = get_guild_id(interaction)
+        created_by = get_user_id(interaction)
         created_at = get_utc_now_iso()
         try:
             database.db_create_group(guild_id, group_name, created_by, created_at)
