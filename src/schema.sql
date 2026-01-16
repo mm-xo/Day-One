@@ -67,5 +67,6 @@ CREATE TABLE IF NOT EXISTS streaks (
 CREATE TABLE IF NOT EXISTS users (
     user_id INTEGER PRIMARY KEY,   -- Discord snowflake
     timezone TEXT NOT NULL DEFAULT 'UTC',                -- e.g. "America/Winnipeg"
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    want_tz_prompts BOOLEAR NOT NULL DEFAULT 'TRUE'      -- users can set this to FALSE if they dont want to be prompted for /set_timezone
 );
