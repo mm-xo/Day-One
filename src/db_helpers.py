@@ -7,6 +7,7 @@ DB_PATH = BASE_DIR / "data" / "day_one.db"
 def get_db_connection():
     DB_PATH.parent.mkdir(exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON;")
     conn.row_factory = sqlite3.Row
     return conn
 
