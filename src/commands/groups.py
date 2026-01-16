@@ -27,6 +27,8 @@ async def leave_group(interaction: discord.Interaction, name: str):
 
 @group.command(name="join", description="Join a new habit group")
 async def join_group(interaction: discord.Interaction, name: str):
+    # TODO DM users for their timezone if this is the first time they have joined a group and their timezone is not set.
+    # users might have DM's closed, so when a user joins a group, ask them to run /set_timezone in the channel (send a DM anyway tho).
     if interaction.guild is None:
         await interaction.response.send_message("Use this command in a server.", ephemeral=True)
         return
@@ -39,9 +41,11 @@ async def join_group(interaction: discord.Interaction, name: str):
     group_id = database.db_get_group_by_name(guild_id, group_name)["id"]
     user_id = member.id
     joined_at = get_utc_now_iso() # TODO maybe time it after the code for inserting user into the group table is successful
+    # timezone = "NULL" # TODO
     
     try:
         database.db_create_member(guild_id, group_id, user_id, joined_at)
+        database.db_add_user(user_id, get_utc_now_iso())
     except sqlite3.IntegrityError as e:
         print(f"DB IntegrityError while joining group **{group_name}**.")
         print_exc()
@@ -49,14 +53,18 @@ async def join_group(interaction: discord.Interaction, name: str):
         await interaction.response.send_message(f"User: {user_id} already exists in **{group_name}**.", ephemeral=True)
         return
     else:
-        await interaction.response.send_message(f"{user_display_name} just started Day One in **{group_name}**", ephemeral=False)
+        await interaction.response.send_message(f"{user_display_name} just started Day One in **{group_name}**!", ephemeral=False)
 
     #test
     row = db_helpers.fetchone(
-        "SELECT id, guild_id, group_id, user_id, joined_at FROM group_members WHERE guild_id=? AND group_id=?",
+        "SELECT id, guild_id, group_id, user_id, joined_at FROM group_memberships WHERE guild_id=? AND group_id=?",
         (guild_id, group_id)
     )
-    print("Inserted member:", dict(row) if row else None)
+    user_row = db_helpers.fetchone(
+        "SELECT user_id, timezone, created_at FROM users WHERE user_id=? AND created_at=?",
+        (user_id, joined_at)
+    )
+    print("Inserted user:", dict(user_row) if user_row else None)
 
 
 @group.command(name="create", description="Create a new habit group")

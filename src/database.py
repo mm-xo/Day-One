@@ -50,7 +50,17 @@ def db_get_guild_groups(guild_id):
 # ================================================================
 def db_create_member(guild_id, group_id, user_id, joined_at):
     db_helpers.execute(
-        "INSERT INTO group_members (guild_id, group_id, user_id, joined_at) VALUES (?,?,?,?)",
+        "INSERT INTO group_memberships (guild_id, group_id, user_id, joined_at) VALUES (?,?,?,?)",
         (guild_id, group_id, user_id, joined_at)
+    )
+    return True
+
+# ================================================================
+# USERS CRUD
+# ================================================================
+def db_add_user(user_id, created_at):
+    db_helpers.execute(
+        "INSERT INTO users (user_id, created_at) VALUES (?,?)",
+        (user_id, created_at)
     )
     return True
