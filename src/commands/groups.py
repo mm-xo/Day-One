@@ -1,9 +1,10 @@
 import discord
 import sqlite3
 from traceback import print_exc
-import db_helpers
+import db_helpers # just for testing, remove this later (bad bad programming practice bruh)
 import database
 from discord import app_commands
+from services.timezone_onboarding import timezone_prompt
 from utils.command_helpers import validate_role
 from utils.getters import get_user_id, get_display_name, get_guild_id
 from utils.time import get_utc_now_iso
@@ -25,6 +26,7 @@ async def leave_group(interaction: discord.Interaction, name: str):
     guild_id = get_guild_id(interaction)
     group_id = database.db_get_group_by_name(guild_id, group_name)["id"]
     user_id = get_user_id(interaction)
+    # XXX
     # TODO think about what you want to do with checkins and streaks (just reset streaks) after a user leaves
 
 @group.command(name="join", description="Join a new habit group")
@@ -52,8 +54,10 @@ async def join_group(interaction: discord.Interaction, name: str):
         # timezone= None, database defaults to UTC timezone for the user.
         # TODO add user to db in a separate try/catch (or conditional)
         # TODO check if user already exists, and if or not they have timezone set. If timezone=UTC in db, DM/ephemeral=True and ask for tz
-        database.db_add_user(user_id, created_at, timezone=None) # add user to the db
-        
+        if database.db_get_user(user_id) is None:
+            database.db_add_user(user_id, created_at, timezone=None) # add user to the db
+            
+        # BUG make sure the group exists before adding, otherwise send a graceful message to the user
         database.db_create_member(guild_id, group_id, user_id, joined_at) # add user to the habit group
     except sqlite3.IntegrityError as e:
         print(f"DB IntegrityError while joining group **{group_name}**.")
@@ -63,6 +67,7 @@ async def join_group(interaction: discord.Interaction, name: str):
         return
     else:
         await interaction.response.send_message(f"{user_display_name} just started Day One in **{group_name}**!", ephemeral=False)
+        timezone_prompt(interaction)
 
     #test
     row = db_helpers.fetchone(
@@ -99,6 +104,7 @@ async def create_group(interaction: discord.Interaction, name: str):
         created_by = get_user_id(interaction)
         created_at = get_utc_now_iso()
         try:
+            database.db_add_user(user_id=created_by, created_at=created_at, timezone=None) # TODO implement INSERT OR IGNORE in db or update/insert function in db)
             database.db_create_group(guild_id, group_name, created_by, created_at)
         except sqlite3.IntegrityError as e:
             # ungraceful error for dev
