@@ -40,6 +40,7 @@ def db_get_guild_groups(guild_id):
     )
     # TODO return member count with each group
 
+# BUG validate group existence
 
 # TODO delete group (row from habit_groups table)
 
@@ -70,6 +71,12 @@ def db_add_user(user_id, created_at, timezone=None): # Default timezone
 
     return True
 
+def db_get_user(user_id):
+    return db_helpers.execute(
+        "SELECT user_id, timezone, created_at, want_tz_prompts FROM users WHERE user_id=?;",
+        (user_id)
+    )
+
 
 # ================================================================
 # TIMEZONE CRUD
@@ -85,6 +92,13 @@ def db_get_user_timezone(user_id):
         (user_id)
     )
     return user_row["timezone"]
+
+def db_get_tz_prompt(user_id):
+    user_row = db_helpers.fetchone(
+        "SELECT user_id, timezone, created_at, want_tz_prompts FROM users WHERE user_id=?;",
+        (user_id)
+    )
+    return user_row["want_tz_prompt"]
 
 def db_update_timezone(user_id, timezone="UTC"):
     db_helpers.execute(
