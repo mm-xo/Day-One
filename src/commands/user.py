@@ -1,6 +1,5 @@
-# TODO /set_timezone user can call this after seeing the ephemeral prompt by timezone_prompt(interaction)
-# TODO /disable_timezone -- to disable timezone prompts (default to UTC), calls database method
-# TODO /enable_timezone  -- just make it for testing, dont really need it
+# TODO create a /user me command that shows everything important about the user
+# first: name of all the groups the user is in
 
 import discord
 from discord import app_commands
@@ -19,13 +18,14 @@ async def set_timezone(interaction: discord.Interaction, timezone: str):
         await interaction.response.send_message("Use this command in a server.", ephemeral=True)
         return
     
-    if not validate_timezone(str):
+    if not validate_timezone(timezone):
         await interaction.response.send_message("Please provide a valid timezone. For example:\n- `/set_timezone America/Chicago`\n- `/set_timezone Asia/Kolkata`\n- `/set_timezone Europe/Istanbul`\n\nIf you\'re not sure what yours is, see:\n<https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>", ephemeral=True)
         return
     # now timezone is in valid IANA format
     # update timezone in db
     # BUG ensure user exists in the database first (send graceful error if not)
-    db_update_timezone(str)
+    await interaction.response.send_message(f"Your timezone is now set to `{timezone}`.")
+    db_update_timezone(timezone)
     
 @user_group.command(name="disable_timezone", description="Disable prompts asking for timezone.")
 async def disable_timezone(interaction: discord.Interaction):
