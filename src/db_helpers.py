@@ -16,7 +16,7 @@ def execute(sql, params=()):
     cursor = conn.execute(sql, params)
     conn.commit()
     conn.close()
-    # return cursor
+    return cursor
 
 def fetchone(sql, params=()):
     conn = get_db_connection()
