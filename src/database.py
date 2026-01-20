@@ -29,18 +29,17 @@ def db_get_group_by_name(guild_id, name):
         (guild_id, name)
     )
 
-# TODO get group by Id (later)
+# TODO get group by Id (later maybe)
 
 
 # TODO list groups for a guild
 def db_get_guild_groups(guild_id):
     return db_helpers.fetchall(
         "SELECT id, guild_id, name, created_by, created_at FROM habit_groups WHERE guild_id=?;",
-        (guild_id)
+        (guild_id,)
     )
     # TODO return member count with each group
 
-# BUG validate group existence
 
 # TODO delete group (row from habit_groups table)
 
@@ -56,6 +55,13 @@ def db_create_member(guild_id, group_id, user_id, joined_at):
         (guild_id, group_id, user_id, joined_at)
     )
     return True
+
+def db_remove_member(guild_id, group_id, user_id):
+    cur = db_helpers.execute(
+        "DELETE FROM group_memberships WHERE guild_id=? AND group_id=? AND user_id=?;",
+        (guild_id, group_id, user_id)
+    )
+    return cur.rowcount
 
 # ================================================================
 # USERS CRUD
@@ -74,31 +80,29 @@ def db_add_user(user_id, created_at, timezone=None): # Default timezone
 def db_get_user(user_id):
     return db_helpers.execute(
         "SELECT user_id, timezone, created_at, want_tz_prompts FROM users WHERE user_id=?;",
-        (user_id)
+        (user_id,)
     )
 
 
 # ================================================================
 # TIMEZONE CRUD
 # ================================================================
-# TODO db_get_user_timezone(user_id)
-# TODO db_update_timezone(user_id, timezone)
-# TODO db_update_tz_prompts(user_id, preference)
-# these get called using slash commands
-
 def db_get_user_timezone(user_id):
     user_row = db_helpers.fetchone(
         "SELECT user_id, timezone, created_at, want_tz_prompts FROM users WHERE user_id=?;",
-        (user_id)
+        (user_id,)
     )
-    return user_row["timezone"]
+    return user_row["timezone"] # BUG if user doesnt exists, this will throw an error
+
+# TODO make generic getters for all tables. They take the necessary parameters,
+# and a parameter equal to a property name in the table (e.g., "created_at", "guild_id", etc)
 
 def db_get_tz_prompt(user_id):
     user_row = db_helpers.fetchone(
         "SELECT user_id, timezone, created_at, want_tz_prompts FROM users WHERE user_id=?;",
-        (user_id)
+        (user_id,)
     )
-    return user_row["want_tz_prompt"]
+    return user_row["want_tz_prompts"] # BUG if user doesnt exists, this will throw an error
 
 def db_update_timezone(user_id, timezone="UTC"):
     db_helpers.execute(
