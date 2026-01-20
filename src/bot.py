@@ -3,7 +3,7 @@ from discord.ext import commands
 import config
 import database
 from commands.groups import group as groups_command_group
-from commands.user import settings_group
+from commands.user import user_group
 
 intents = discord.Intents.default()
 
@@ -19,7 +19,7 @@ class HabitBot(commands.Bot):
     async def setup_hook(self):
         
         self.tree.add_command(groups_command_group)
-        self.tree.add_command(settings_group)
+        self.tree.add_command(user_group)
         
         guild_id = int(config.DEV_GUILD_ID)
         if guild_id:

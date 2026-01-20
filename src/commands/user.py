@@ -8,12 +8,12 @@ from services.timezone_onboarding import validate_timezone
 from database import db_update_timezone, db_update_tz_prompts
 from utils.getters import get_user_id
 
-settings_group = app_commands.Group(
-    name="user_settings",
+user_group = app_commands.Group(
+    name="user",
     description="Day-One commands for user settings"
 )
 
-@settings_group.command(name="set_timezone", description="User can set timezone")
+@user_group.command(name="set_timezone", description="User can set timezone")
 async def set_timezone(interaction: discord.Interaction, timezone: str):
     if interaction.guild is None:
         await interaction.response.send_message("Use this command in a server.", ephemeral=True)
@@ -27,7 +27,7 @@ async def set_timezone(interaction: discord.Interaction, timezone: str):
     # BUG ensure user exists in the database first (send graceful error if not)
     db_update_timezone(str)
     
-@settings_group.command(name="disable_timezone", description="Disable prompts asking for timezone.")
+@user_group.command(name="disable_timezone", description="Disable prompts asking for timezone.")
 async def disable_timezone(interaction: discord.Interaction):
     if interaction.guild is None:
         await interaction.response.send_message("Use this command in a server.", ephemeral=True)
@@ -37,7 +37,7 @@ async def disable_timezone(interaction: discord.Interaction):
     await interaction.response.send_message("Timezone related prompts disabled.", ephemeral=True)
 
 # Realistically, this is useless. But might need it for testing.
-@settings_group.command(name="enable_timezone", description="Enable prompts asking for timezone.")
+@user_group.command(name="enable_timezone", description="Enable prompts asking for timezone.")
 async def enable_timezone(interaction: discord.Interaction):
     if interaction.guild is None:
         await interaction.response.send_message("Use this command in a server.", ephemeral=True)
