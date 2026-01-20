@@ -3,7 +3,7 @@ from discord.ext import commands
 import config
 import database
 from commands.groups import group as groups_command_group
-from commands.user_settings import settings_group
+from commands.user import settings_group
 
 intents = discord.Intents.default()
 
