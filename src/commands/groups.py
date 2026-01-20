@@ -15,6 +15,28 @@ group = app_commands.Group(
     description="Day-One habit-group management commands"
 )
 
+# ============================================================================================
+@group.command(name="list", description="List all groups in the server.")
+async def list_groups(interaction: discord.Interaction):
+    if interaction.guild is None:
+        await interaction.response.send_message("Use this command in a server.", ephemeral=True)
+        return
+    
+    try:
+        group_rows = database.db_get_guild_groups(guild_id = get_guild_id(interaction))
+        if len(group_rows) == 0:
+            await interaction.response.send_message("There are no habit groups in this server right now. Only users with Admin/Mod role can create a habit group.", ephemeral=True)
+            return
+        available_groups = "Below are the groups available in this server:\n"
+        for group_row in group_rows:
+            available_groups += f"- {group_row["name"]}\n"
+        available_groups += "\nPlease use `/group join [name]` to join."
+        await interaction.response.send_message(available_groups, ephemeral=True)
+    except sqlite3.Error as e:
+        print("DB Error occured while serving /list command.")
+        print_exc()
+
+# ============================================================================================
 @group.command(name="leave", description="Leave a habit group")
 async def leave_group(interaction: discord.Interaction, name: str):
     if interaction.guild is None:
@@ -44,7 +66,9 @@ async def leave_group(interaction: discord.Interaction, name: str):
     except sqlite3.IntegrityError as e:
         print(f"DB IntegrityError while leaving group {group_name}.")
         print_exc()
+# ============================================================================================
 
+# ============================================================================================
 @group.command(name="join", description="Join a new habit group")
 async def join_group(interaction: discord.Interaction, name: str):
     if interaction.guild is None:
@@ -90,8 +114,9 @@ async def join_group(interaction: discord.Interaction, name: str):
         (user_id,)
     )
     print("Inserted user:", dict(user_row) if user_row else None)
+# ============================================================================================
 
-
+# ============================================================================================
 @group.command(name="create", description="Create a new habit group")
 async def create_group(interaction: discord.Interaction, name: str):
     if interaction.guild is None:
@@ -126,3 +151,4 @@ async def create_group(interaction: discord.Interaction, name: str):
         await interaction.response.send_message("You need Admin/Mod to create a group", ephemeral=True)
         
     await interaction.response.send_message(f"Day One for **{group_name}** has started!", ephemeral=False)
+    # ============================================================================================
