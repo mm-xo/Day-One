@@ -98,7 +98,7 @@ async def join_group(interaction: discord.Interaction, name: str):
         print(f"DB IntegrityError while joining group **{group_name}**.")
         print_exc()
         
-        await interaction.response.send_message(f"User: {user_id} already exists in **{group_name}**.", ephemeral=True)
+        await interaction.response.send_message(f"You are already a member in **{group_name}**.", ephemeral=True)
         return
     else:
         await interaction.response.send_message(f"{user_display_name} just started Day One in **{group_name}**!", ephemeral=False)
