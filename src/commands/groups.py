@@ -21,43 +21,54 @@ async def leave_group(interaction: discord.Interaction, name: str):
         await interaction.response.send_message("Use this command in a server.", ephemeral=True)
         return
     
-    # member = interaction.user
+    display_name = get_display_name(interaction)
     group_name = name.strip().upper()
     guild_id = get_guild_id(interaction)
-    group_id = database.db_get_group_by_name(guild_id, group_name)["id"]
+    
+    group_row = database.db_get_group_by_name(guild_id, group_name)   
+    if group_row is None:
+        await interaction.response.send_message(f"**{group_name}** does not exist in this server.", ephemeral=True)
+        return
+    group_id = group_row["id"] # TODO (nevermind, still need a None check before accessing dict) make a generic getter for groups get_from_group(guild_id, group_id, property="id"), maybe make one for all tables
+
     user_id = get_user_id(interaction)
     # XXX
     # TODO think about what you want to do with checkins and streaks (just reset streaks) after a user leaves
+    # for now just delete checkins and streaks
+    try:
+        deleted = database.db_remove_member(guild_id, group_id, user_id)
+        if deleted == 0:
+            await interaction.response.send_message(f"You are not a member in **{group_name}**. Please use `/join {group_name}` command to join.", ephemeral=True)
+            return
+        await interaction.response.send_message(f"{display_name} has left **{group_name}**!")
+    except sqlite3.IntegrityError as e:
+        print(f"DB IntegrityError while leaving group {group_name}.")
+        print_exc()
 
 @group.command(name="join", description="Join a new habit group")
 async def join_group(interaction: discord.Interaction, name: str):
-    # TODO DM users for their timezone if this is the first time they have joined a group and their timezone is not set.
-    # users might have DM's closed, so when a user joins a group, ask them to run /set_timezone in the channel (send a DM anyway tho).
     if interaction.guild is None:
         await interaction.response.send_message("Use this command in a server.", ephemeral=True)
         return
     
-    # member = interaction.user 
-    # user_display_name = member.display_name
-    user_display_name = get_display_name(interaction)
     group_name = name.strip().upper()
-    # need guild_id, group_id, user_id, and joined_at utc time (for now)
     guild_id = interaction.guild_id
-    group_id = database.db_get_group_by_name(guild_id, group_name)["id"]
-    # user_id = member.id # TODO use function from command_helpers
+
+    group_row = database.db_get_group_by_name(guild_id, group_name)    
+    if group_row is None: # no group with this name exists in that guild/db
+        await interaction.response.send_message(f"**{group_name}** does not exist in this server.", ephemeral=True)
+        return
+    group_id = group_row["id"]
+    
+    user_display_name = get_display_name(interaction)
     user_id = get_user_id(interaction)
-    joined_at = get_utc_now_iso() # TODO maybe time it after the code for inserting user into the group table is successful
+    joined_at = get_utc_now_iso()
     created_at = joined_at
-    # timezone = "NULL" # TODO
     
     try:
-        # timezone= None, database defaults to UTC timezone for the user.
-        # TODO add user to db in a separate try/catch (or conditional)
-        # TODO check if user already exists, and if or not they have timezone set. If timezone=UTC in db, DM/ephemeral=True and ask for tz
         if database.db_get_user(user_id) is None:
             database.db_add_user(user_id, created_at, timezone=None) # add user to the db
-            
-        # BUG make sure the group exists before adding, otherwise send a graceful message to the user
+        
         database.db_create_member(guild_id, group_id, user_id, joined_at) # add user to the habit group
     except sqlite3.IntegrityError as e:
         print(f"DB IntegrityError while joining group **{group_name}**.")
@@ -67,7 +78,7 @@ async def join_group(interaction: discord.Interaction, name: str):
         return
     else:
         await interaction.response.send_message(f"{user_display_name} just started Day One in **{group_name}**!", ephemeral=False)
-        timezone_prompt(interaction)
+        await timezone_prompt(interaction)
 
     #test
     row = db_helpers.fetchone(
@@ -75,29 +86,18 @@ async def join_group(interaction: discord.Interaction, name: str):
         (guild_id, group_id)
     )
     user_row = db_helpers.fetchone(
-        "SELECT user_id, timezone, created_at FROM users WHERE user_id=? AND created_at=?",
-        (user_id, joined_at)
+        "SELECT user_id, timezone, created_at, want_tz_prompts FROM users WHERE user_id=?",
+        (user_id,)
     )
     print("Inserted user:", dict(user_row) if user_row else None)
 
 
 @group.command(name="create", description="Create a new habit group")
 async def create_group(interaction: discord.Interaction, name: str):
-    # TODO code functionality for group creation.
-    # need to check the role of the user that invokes this command.
-    # only users with "Mod" or "Admin" can create a group.
-    # Think of ways to generalize it for other servers.
-    
     if interaction.guild is None:
         await interaction.response.send_message("Use this command in a server.", ephemeral=True)
         return
     
-    # FLOW: 1> validate authority of the user creating the group, continue only if valid
-    # 2> take the group name, guild_id, created_id, and created_at time (in UTC for now)
-    # insert group to db
-    # member = interaction.guild.get_member(interaction.user.id) # users are global, members are guild specific    
-    
-    # member = interaction.user
     if validate_role(interaction, ["Admin", "Mod"]):
         group_name = name.strip().upper()
         guild_id = get_guild_id(interaction)
@@ -112,7 +112,7 @@ async def create_group(interaction: discord.Interaction, name: str):
             print_exc()
             
             # graceful error for user
-            await interaction.response.send_message(f"A group with name {group_name} already exists in this server.", ephemeral=True)
+            await interaction.response.send_message(f"**{group_name}** already exists in this server. Duplicate names are not allowed (for now).", ephemeral=True)
             return
 
         # test
