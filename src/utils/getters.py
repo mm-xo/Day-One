@@ -9,5 +9,5 @@ def get_display_name(interaction):
 def get_guild_id(interaction):
     return interaction.guild.id
 
-def get_timezone(user_id): # TODO
-    return database.db_get_user_timezone(user_id)
+async def get_timezone(user_id): # TODO
+    return await database.db_get_user_timezone(user_id)

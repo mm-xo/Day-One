@@ -1,7 +1,7 @@
 import discord
 import sqlite3
 from traceback import print_exc
-import db_helpers # just for testing, remove this later (bad bad programming practice bruh)
+# import db_helpers # just for testing, remove this later (bad bad programming practice bruh)
 import database
 from discord import app_commands
 from services.timezone_onboarding import timezone_prompt
@@ -23,7 +23,7 @@ async def list_groups(interaction: discord.Interaction):
         return
     
     try:
-        group_rows = database.db_get_guild_groups(guild_id = get_guild_id(interaction))
+        group_rows = await database.db_get_guild_groups(guild_id = get_guild_id(interaction))
         if len(group_rows) == 0:
             await interaction.response.send_message("There are no habit groups in this server right now. Only users with Admin/Mod role can create a habit group.", ephemeral=True)
             return
@@ -47,7 +47,7 @@ async def leave_group(interaction: discord.Interaction, name: str):
     group_name = name.strip().upper()
     guild_id = get_guild_id(interaction)
     
-    group_row = database.db_get_group_by_name(guild_id, group_name)   
+    group_row = await database.db_get_group_by_name(guild_id, group_name)   
     if group_row is None:
         await interaction.response.send_message(f"**{group_name}** does not exist in this server.", ephemeral=True)
         return
@@ -58,11 +58,12 @@ async def leave_group(interaction: discord.Interaction, name: str):
     # TODO think about what you want to do with checkins and streaks (just reset streaks) after a user leaves
     # for now just delete checkins and streaks
     try:
-        deleted = database.db_remove_member(guild_id, group_id, user_id)
+        deleted = await database.db_remove_member(guild_id, group_id, user_id)
         if deleted == 0:
             await interaction.response.send_message(f"You are not a member in **{group_name}**. Please use `/join {group_name}` command to join.", ephemeral=True)
             return
-        await interaction.response.send_message(f"{display_name} has left **{group_name}**!")
+        else:
+            await interaction.response.send_message(f"{display_name} has left **{group_name}**!")
     except sqlite3.IntegrityError as e:
         print(f"DB IntegrityError while leaving group {group_name}.")
         print_exc()
@@ -78,7 +79,7 @@ async def join_group(interaction: discord.Interaction, name: str):
     group_name = name.strip().upper()
     guild_id = interaction.guild_id
 
-    group_row = database.db_get_group_by_name(guild_id, group_name)    
+    group_row = await database.db_get_group_by_name(guild_id, group_name)    
     if group_row is None: # no group with this name exists in that guild/db
         await interaction.response.send_message(f"**{group_name}** does not exist in this server.", ephemeral=True)
         return
@@ -90,10 +91,8 @@ async def join_group(interaction: discord.Interaction, name: str):
     created_at = joined_at
     
     try:
-        if database.db_get_user(user_id) is None:
-            database.db_add_user(user_id, created_at, timezone=None) # add user to the db
-        
-        database.db_create_member(guild_id, group_id, user_id, joined_at) # add user to the habit group
+        await database.db_add_user(user_id, created_at, timezone=None) # add user to the db
+        await database.db_create_member(guild_id, group_id, user_id, joined_at) # add user to the habit group
     except sqlite3.IntegrityError as e:
         print(f"DB IntegrityError while joining group **{group_name}**.")
         print_exc()
@@ -101,15 +100,15 @@ async def join_group(interaction: discord.Interaction, name: str):
         await interaction.response.send_message(f"You are already a member in **{group_name}**.", ephemeral=True)
         return
     else:
-        await interaction.response.send_message(f"{user_display_name} just started Day One in **{group_name}**!", ephemeral=False)
+        await interaction.response.send_message(f"Welcome {user_display_name} to your Day One in **{group_name}**!", ephemeral=False)
         await timezone_prompt(interaction)
 
     #test
-    row = db_helpers.fetchone(
+    row = await database.fetchone(
         "SELECT id, guild_id, group_id, user_id, joined_at FROM group_memberships WHERE guild_id=? AND group_id=?",
         (guild_id, group_id)
     )
-    user_row = db_helpers.fetchone(
+    user_row = await database.fetchone(
         "SELECT user_id, timezone, created_at, want_tz_prompts FROM users WHERE user_id=?",
         (user_id,)
     )
@@ -129,8 +128,8 @@ async def create_group(interaction: discord.Interaction, name: str):
         created_by = get_user_id(interaction)
         created_at = get_utc_now_iso()
         try:
-            database.db_add_user(user_id=created_by, created_at=created_at, timezone=None) # TODO implement INSERT OR IGNORE in db or update/insert function in db)
-            database.db_create_group(guild_id, group_name, created_by, created_at)
+            await database.db_add_user(user_id=created_by, created_at=created_at, timezone=None) # TODO implement INSERT OR IGNORE in db or update/insert function in db)
+            await database.db_create_group(guild_id, group_name, created_by, created_at)
         except sqlite3.IntegrityError as e:
             # ungraceful error for dev
             print(f"DB IntegrityError while creating habit group **{group_name}**.")
@@ -141,7 +140,7 @@ async def create_group(interaction: discord.Interaction, name: str):
             return
 
         # test
-        row = db_helpers.fetchone(
+        row = await database.fetchone(
             "SELECT id, guild_id, name, created_by, created_at FROM habit_groups WHERE guild_id=? AND name=?",
             (guild_id, group_name),
         )
@@ -150,5 +149,5 @@ async def create_group(interaction: discord.Interaction, name: str):
     else:
         await interaction.response.send_message("You need Admin/Mod to create a group", ephemeral=True)
         
-    await interaction.response.send_message(f"Day One for **{group_name}** has started!", ephemeral=False)
+    await interaction.response.send_message(f"Day One for group **{group_name}** has started!", ephemeral=False)
     # ============================================================================================

@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+# import aiosqlite
 import config
 import database
 from commands.groups import group as groups_command_group
@@ -9,7 +10,7 @@ intents = discord.Intents.default()
 
 class HabitBot(commands.Bot):
     def __init__(self):
-        super().__init__(command_prefix=None, intents=intents)
+        super().__init__(command_prefix="!", intents=intents)
 
     # async def setup_hook(self):
     #     # Sync slash commands globally (can take a few minutes to appear)
@@ -35,7 +36,7 @@ bot = HabitBot()
 
 @bot.event
 async def on_ready():
-    database.init()
+    await database.init(bot)
     print(f"Logged in as {bot.user} (id={bot.user.id})")
     
 
