@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-day-one = "src.bot:main"
+day-one = "bot:main"
 
 [tool.uv]
 package = true
