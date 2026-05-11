@@ -47,7 +47,7 @@ async def leave_group(interaction: discord.Interaction, name: str):
     group_name = name.strip().upper()
     guild_id = get_guild_id(interaction)
     
-    group_row = await database.db_get_group_by_name(guild_id, group_name)   
+    group_row = await database.db_get_group_by_name(guild_id, group_name)
     if group_row is None:
         await interaction.response.send_message(f"**{group_name}** does not exist in this server.", ephemeral=True)
         return
@@ -79,7 +79,7 @@ async def join_group(interaction: discord.Interaction, name: str):
     group_name = name.strip().upper()
     guild_id = interaction.guild_id
 
-    group_row = await database.db_get_group_by_name(guild_id, group_name)    
+    group_row = await database.db_get_group_by_name(guild_id, group_name)
     if group_row is None: # no group with this name exists in that guild/db
         await interaction.response.send_message(f"**{group_name}** does not exist in this server.", ephemeral=True)
         return
@@ -117,7 +117,7 @@ async def join_group(interaction: discord.Interaction, name: str):
 
 # ============================================================================================
 @group.command(name="create", description="Create a new habit group")
-async def create_group(interaction: discord.Interaction, name: str):
+async def create_group(interaction: discord.Interaction, name: str, allowed_skip_days: int = 0):
     if interaction.guild is None:
         await interaction.response.send_message("Use this command in a server.", ephemeral=True)
         return
@@ -129,7 +129,7 @@ async def create_group(interaction: discord.Interaction, name: str):
         created_at = get_utc_now_iso()
         try:
             await database.db_add_user(user_id=created_by, created_at=created_at, timezone=None) # TODO implement INSERT OR IGNORE in db or update/insert function in db)
-            await database.db_create_group(guild_id, group_name, created_by, created_at)
+            await database.db_create_group(guild_id, group_name, created_by, created_at, allowed_skip_days)
         except sqlite3.IntegrityError as e:
             # ungraceful error for dev
             print(f"DB IntegrityError while creating habit group **{group_name}**.")
@@ -141,7 +141,7 @@ async def create_group(interaction: discord.Interaction, name: str):
 
         # test
         row = await database.fetchone(
-            "SELECT id, guild_id, name, created_by, created_at FROM habit_groups WHERE guild_id=? AND name=?",
+            "SELECT id, guild_id, name, created_by, created_at, allowed_skip_days FROM habit_groups WHERE guild_id=? AND name=?",
             (guild_id, group_name),
         )
         print("Inserted row:", dict(row) if row else None)
@@ -149,5 +149,5 @@ async def create_group(interaction: discord.Interaction, name: str):
     else:
         await interaction.response.send_message("You need Admin/Mod to create a group", ephemeral=True)
         
-    await interaction.response.send_message(f"Day One for group **{group_name}** has started!", ephemeral=False)
+    await interaction.response.send_message(f"Day One for group **{group_name}** has started!\nUser are allowed to skip check-ins for **{allowed_skip_days}** days without breaking their streak.", ephemeral=False)
     # ============================================================================================

@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS habit_groups (
     name TEXT NOT NULL,
     created_by INTEGER NOT NULL,    -- user id of creator
     created_at TEXT NOT NULL,
+    allowed_skip_days INTEGER NOT NULL DEFAULT 0,  -- number of days a user can skip check-ins without breaking their streak
 
     FOREIGN KEY (created_by) REFERENCES users(user_id) ON DELETE RESTRICT,
     UNIQUE (guild_id, name)

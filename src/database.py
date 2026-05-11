@@ -42,16 +42,16 @@ def _valid_db():
 # ================================================================
 # HABIT GROUP CRUD
 # ================================================================
-async def db_create_group(guild_id, group_name, created_by, created_at):
+async def db_create_group(guild_id, group_name, created_by, created_at, allowed_skip_days=0):
     await execute(
-        "INSERT INTO habit_groups (guild_id, name, created_by, created_at) VALUES (?,?,?,?);",
-        (guild_id, group_name, created_by, created_at)
+        "INSERT INTO habit_groups (guild_id, name, created_by, created_at, allowed_skip_days) VALUES (?,?,?,?,?);",
+        (guild_id, group_name, created_by, created_at, allowed_skip_days)
     )
     return True
 
 async def db_get_group_by_name(guild_id, name):
     return await fetchone(
-        "SELECT id, guild_id, name, created_by, created_at FROM habit_groups WHERE guild_id=? AND name=?;",
+        "SELECT id, guild_id, name, created_by, created_at, allowed_skip_days FROM habit_groups WHERE guild_id=? AND name=?;",
         (guild_id, name)
     )
 
@@ -61,7 +61,7 @@ async def db_get_group_by_name(guild_id, name):
 # TODO list groups for a guild
 async def db_get_guild_groups(guild_id):
     return await fetchall(
-        "SELECT id, guild_id, name, created_by, created_at FROM habit_groups WHERE guild_id=?;",
+        "SELECT id, guild_id, name, created_by, created_at, allowed_skip_days FROM habit_groups WHERE guild_id=?;",
         (guild_id,)
     )
     # TODO create get_member_count with for group in GROUP MEMBERSHIP CRUD
