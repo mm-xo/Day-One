@@ -1,5 +1,20 @@
-.venv/
-.env
+# database
+data/
+
+# Python
 __pycache__/
 *.pyc
-data/
+.venv/
+
+# Environment
+.env
+
+# Packaging
+*.egg-info/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

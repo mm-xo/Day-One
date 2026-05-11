@@ -9,3 +9,9 @@ dependencies = [
     "discord-py>=2.7.1",
     "python-dotenv>=1.2.2",
 ]
+
+[project.scripts]
+day-one = "src.bot:main"
+
+[tool.uv]
+package = true

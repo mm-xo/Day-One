@@ -46,4 +46,8 @@ async def ping(interaction: discord.Interaction):
 
 # TODO Create a help command with usage info
 
-bot.run(config.DISCORD_TOKEN)
+def main():
+    bot.run(config.DISCORD_TOKEN)
+
+if __name__ == "__main__":
+    main()
