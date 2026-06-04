@@ -4,7 +4,7 @@ from traceback import print_exc
 import database
 from discord import app_commands
 from services.timezone_onboarding import timezone_prompt
-from utils.command_helpers import validate_role
+from utils.command_helpers import validate_role, is_command_in_server
 from utils.getters import get_user_id, get_display_name, get_guild_id
 from utils.time import get_utc_now_iso, get_local_today_iso
 # /src is the import root, so commands is a package and command_helpers is a module inside it
@@ -225,13 +225,4 @@ async def create_group(interaction: discord.Interaction, name: str, allowed_skip
         
     else:
         await interaction.response.send_message("You need Admin/Mod to create a group", ephemeral=True)
-# ============================================================================================
-
-
-# ============================================================================================
-async def is_command_in_server(interaction: discord.Interaction):
-    if interaction.guild is None:
-        await interaction.response.send_message("Use this command in a server.", ephemeral=True)
-        return False
-    return True
 # ============================================================================================
