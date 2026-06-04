@@ -1,7 +1,6 @@
 import discord
 import sqlite3
 from traceback import print_exc
-# import db_helpers # just for testing, remove this later (bad bad programming practice bruh)
 import database
 from discord import app_commands
 from services.timezone_onboarding import timezone_prompt
@@ -10,11 +9,14 @@ from utils.getters import get_user_id, get_display_name, get_guild_id
 from utils.time import get_utc_now_iso, get_local_today_iso
 # /src is the import root, so commands is a package and command_helpers is a module inside it
 
+
 group = app_commands.Group(
     name="group",
     description="Day-One habit-group management commands"
 )
 
+
+# ============================================================================================
 @group.command(name="checkin", description="Log your habit in a joined group.")
 async def checkin(interaction: discord.Interaction, group_name: str, note: str):
     
@@ -82,6 +84,8 @@ async def checkin(interaction: discord.Interaction, group_name: str, note: str):
         )
     
     await interaction.response.send_message(message)
+# ============================================================================================
+
 
 # ============================================================================================
 @group.command(name="list", description="List all groups in the server.")
@@ -104,6 +108,8 @@ async def list_groups(interaction: discord.Interaction):
     except sqlite3.Error as e:
         print("DB Error occured while serving /list command.")
         print_exc()
+# ============================================================================================
+
 
 # ============================================================================================
 @group.command(name="leave", description="Leave a habit group")
@@ -120,12 +126,11 @@ async def leave_group(interaction: discord.Interaction, name: str):
     if group_row is None:
         await interaction.response.send_message(f"**{group_name}** does not exist in this server.", ephemeral=True)
         return
-    group_id = group_row["id"] # TODO (nevermind, still need a None check before accessing dict) make a generic getter for groups get_from_group(guild_id, group_id, property="id"), maybe make one for all tables
+    
+    group_id = group_row["id"]
 
     user_id = get_user_id(interaction)
-    # XXX
-    # TODO think about what you want to do with checkins and streaks (just reset streaks) after a user leaves
-    # for now just delete checkins and streaks
+
     try:
         deleted = await database.db_remove_member(guild_id, group_id, user_id)
         if deleted == 0:
@@ -138,6 +143,7 @@ async def leave_group(interaction: discord.Interaction, name: str):
         print_exc()
 # ============================================================================================
 
+
 # ============================================================================================
 @group.command(name="join", description="Join a new habit group")
 async def join_group(interaction: discord.Interaction, name: str):
@@ -149,7 +155,7 @@ async def join_group(interaction: discord.Interaction, name: str):
     guild_id = interaction.guild_id
 
     group_row = await database.db_get_group_by_id_name(guild_id, group_name)
-    if group_row is None: # no group with this name exists in that guild/db
+    if group_row is None:
         await interaction.response.send_message(f"**{group_name}** does not exist in this server.", ephemeral=True)
         return
     group_id = group_row["id"]
@@ -160,8 +166,8 @@ async def join_group(interaction: discord.Interaction, name: str):
     created_at = joined_at
     
     try:
-        await database.db_add_user(user_id, created_at, timezone=None) # add user to the db
-        await database.db_create_member(guild_id, group_id, user_id, joined_at) # add user to the habit group
+        await database.db_add_user(user_id, created_at, timezone=None)
+        await database.db_create_member(guild_id, group_id, user_id, joined_at)
     except sqlite3.IntegrityError as e:
         print(f"DB IntegrityError while joining group **{group_name}**.")
         print_exc()
@@ -183,6 +189,7 @@ async def join_group(interaction: discord.Interaction, name: str):
     )
     print("Inserted user:", dict(user_row) if user_row else None)
 # ============================================================================================
+
 
 # ============================================================================================
 @group.command(name="create", description="Create a new habit group")
@@ -218,10 +225,13 @@ async def create_group(interaction: discord.Interaction, name: str, allowed_skip
         
     else:
         await interaction.response.send_message("You need Admin/Mod to create a group", ephemeral=True)
-    # ============================================================================================
+# ============================================================================================
 
+
+# ============================================================================================
 async def is_command_in_server(interaction: discord.Interaction):
     if interaction.guild is None:
         await interaction.response.send_message("Use this command in a server.", ephemeral=True)
         return False
     return True
+# ============================================================================================
