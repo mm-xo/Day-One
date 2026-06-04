@@ -253,51 +253,25 @@ async def db_upsert_streak(
     )
 
 
-async def db_update_streak_after_checkin(
-    guild_id,
-    group_id,
-    user_id,
-    local_day,
-    allowed_skip_days
-):
-    """
-    Returns:
-        current_streak, longest_streak, streak_continued
-    """
-
+async def db_update_streak_after_checkin(guild_id, group_id, user_id, local_day, allowed_skip_days):
     streak_row = await db_get_streak(guild_id, group_id, user_id)
 
-    today = date.fromisoformat(local_day)
-
-    if streak_row is None or streak_row["last_checkin"] is None:
-        current = 1
-        best = 1
-        streak_continued = True
-
+    if streak_row is None:
+        last_checkin = None
+        old_current = 0
+        old_best = 0
     else:
-        last_date = date.fromisoformat(streak_row["last_checkin"])
-
-        days_between = (today - last_date).days
-        missed_days = days_between - 1
-
+        last_checkin = streak_row["last_checkin"]
         old_current = streak_row["current"]
-        old_longest = streak_row["best"]
+        old_best = streak_row["best"]
 
-        if days_between <= 0:
-            # This should not normally happen because duplicate check-ins are blocked.
-            current = old_current
-            best = old_longest
-            streak_continued = True
-
-        elif missed_days <= allowed_skip_days:
-            current = old_current + 1
-            best = max(old_longest, current)
-            streak_continued = True
-
-        else:
-            current = 1
-            best = max(old_longest, current)
-            streak_continued = False
+    current, best, streak_continued = calculate_next_streak(
+        last_checkin=last_checkin,
+        old_current=old_current,
+        old_best=old_best,
+        local_day=local_day,
+        allowed_skip_days=allowed_skip_days
+    )
 
     await db_upsert_streak(
         guild_id=guild_id,
@@ -309,8 +283,44 @@ async def db_update_streak_after_checkin(
     )
 
     return current, best, streak_continued
-    
+
+
+
+
 # HELPERS
+
+def calculate_next_streak(last_checkin, old_current, old_best, local_day, allowed_skip_days):
+
+    today = date.fromisoformat(local_day)
+
+    if last_checkin is None:
+        current = 1
+        best = max(old_best, current)
+        streak_continued = True
+        return current, best, streak_continued
+
+    last_date = date.fromisoformat(last_checkin)
+
+    days_between = (today - last_date).days
+    missed_days = days_between - 1
+
+    if days_between <= 0:
+        current = old_current
+        best = old_best
+        streak_continued = True
+
+    elif missed_days <= allowed_skip_days:
+        current = old_current + 1
+        best = max(old_best, current)
+        streak_continued = True
+
+    else:
+        current = 1
+        best = max(old_best, current)
+        streak_continued = False
+
+    return current, best, streak_continued
+
 async def execute(sql, params=()):
     conn = _valid_db()
     async with _write_lock:
