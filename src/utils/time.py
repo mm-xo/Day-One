@@ -4,7 +4,6 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 def get_utc_now_iso():
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
-# TODO implement local_day logic, and other functions related to user's time
 
 def get_local_today_iso(timezone_name: str):
     try:

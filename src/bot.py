@@ -1,6 +1,5 @@
 import discord
 from discord.ext import commands
-# import aiosqlite
 import config
 import database
 from commands.groups import group as groups_command_group
@@ -11,11 +10,6 @@ intents = discord.Intents.default()
 class HabitBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix="!", intents=intents)
-
-    # async def setup_hook(self):
-    #     # Sync slash commands globally (can take a few minutes to appear)
-    #     await self.tree.sync()
-    #     print("Command tree synced")
 
     async def setup_hook(self):
         
@@ -37,7 +31,10 @@ bot = HabitBot()
 @bot.event
 async def on_ready():
     await database.init(bot)
-    print(f"Logged in as {bot.user} (id={bot.user.id})")
+    user = bot.user
+    if user is None:
+        raise RuntimeError("Bot user is not initialized")
+    print(f"Logged in as {user} (id={user.id})")
     
 
 @bot.tree.command(name="ping", description="Check if the bot is alive.")
@@ -47,7 +44,10 @@ async def ping(interaction: discord.Interaction):
 # TODO Create a help command with usage info
 
 def main():
-    bot.run(config.DISCORD_TOKEN)
+    token = config.DISCORD_TOKEN
+    if token is None:
+        raise ValueError("DISCORD_TOKEN must be set")
+    bot.run(token)
 
 if __name__ == "__main__":
     main()
