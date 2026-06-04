@@ -39,25 +39,27 @@ WHERE left_at IS NULL;
 -- Check-ins
 CREATE TABLE IF NOT EXISTS checkins (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id INTEGER NOT NULL,
     group_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
-    local_day TEXT NOT NULL,                  -- YYYY-MM-DD (user local timezone)
     note TEXT,
-    created_at TEXT NOT NULL,
+    local_day TEXT NOT NULL,                  -- YYYY-MM-DD (user local timezone)
+    checkin_at TEXT NOT NULL,
 
     FOREIGN KEY (group_id) REFERENCES habit_groups(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    UNIQUE (group_id, user_id, local_day)
+    UNIQUE (guild_id, group_id, user_id, local_day)
     -- To stop spams
 );
 
 -- Streaks
 CREATE TABLE IF NOT EXISTS streaks (
     group_id INTEGER NOT NULL,
+    guild_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
     current INTEGER NOT NULL DEFAULT 0,
     best INTEGER NOT NULL DEFAULT 0,
-    last_local_day TEXT,
+    last_checkin TEXT,
 
     FOREIGN KEY (group_id) REFERENCES habit_groups(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
