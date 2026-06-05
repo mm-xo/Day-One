@@ -2,7 +2,7 @@ from __future__ import annotations
 import aiosqlite
 import asyncio
 from pathlib import Path
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 import config
 
 
@@ -265,7 +265,7 @@ async def db_get_streak(guild_id, group_id, user_id):
         SELECT
             current,
             best,
-            last_checkin,
+            last_checkin
         FROM streaks
         WHERE guild_id = ?
             AND group_id = ?
@@ -427,6 +427,44 @@ async def dev_seed_group(guild_id, group_name, created_by, allowed_skip_days=0, 
         "joined_creator": joined_creator,
     }
 # ============================================================================================
+
+
+_dev_today_overrides: dict[int, str] = {}
+
+# ============================================================================================
+def _ensure_dev_guild(guild_id: int):
+    if guild_id != int(config.DEV_GUILD_ID):
+        raise PermissionError("This dev helper can only run in the dev guild.")
+# ============================================================================================
+
+
+# ============================================================================================
+def dev_get_today(guild_id: int) -> str:
+    """
+    Returns the fake dev date if one is set.
+    Otherwise returns the real current date.
+    """
+    return _dev_today_overrides.get(guild_id, date.today().isoformat())
+# ============================================================================================
+
+
+# ============================================================================================
+async def dev_set_today(guild_id: int, local_day: str):
+    """
+    Sets the fake current day for dev testing.
+    """
+    _ensure_dev_guild(guild_id)
+
+    # Validate date format.
+    parsed_day = date.fromisoformat(local_day)
+
+    _dev_today_overrides[guild_id] = parsed_day.isoformat()
+
+    return {
+        "today": parsed_day.isoformat()
+    }
+# ============================================================================================
+
 
 
 # =============================================================

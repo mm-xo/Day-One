@@ -40,7 +40,7 @@ async def reset(interaction: discord.Interaction):
 
 # ============================================================================================
 @dev_group.command(name="seed_group", description="Create a test habit group in the dev guild.")
-async def seed_group(interaction, name: str, allowed_skip_days: int=0, join_me: bool=True):
+async def seed_group(interaction: discord.Interaction, name: str, allowed_skip_days: int=0, join_me: bool=True):
     if not is_dev(interaction):
         await interaction.response.send_message("Dev command only.", ephemeral=True)
         return
@@ -76,3 +76,45 @@ async def seed_group(interaction, name: str, allowed_skip_days: int=0, join_me: 
         ),
         ephemeral=True,
     )
+# ============================================================================================
+
+
+# ============================================================================================
+@dev_group.command(name="set_today", description="Set the fake current date for dev testing.",)
+async def set_today(interaction: discord.Interaction, day: str,):
+    await interaction.response.defer(ephemeral=True)
+
+    try:
+        if not is_dev(interaction):
+            await interaction.followup.send("Dev command only.", ephemeral=True)
+            return
+
+        if interaction.guild_id is None:
+            await interaction.followup.send(
+                "This command can only be used in a server.",
+                ephemeral=True,
+            )
+            return
+
+        result = await database.dev_set_today(
+            guild_id=interaction.guild_id,
+            local_day=day,
+        )
+
+        await interaction.followup.send(
+            f"Fake today set to `{result['today']}`.",
+            ephemeral=True,
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+
+        await interaction.followup.send(
+            f"set_today failed:\n```py\n{type(e).__name__}: {e}\n```",
+            ephemeral=True,
+        )
+# ============================================================================================
+
+
+
