@@ -4,11 +4,13 @@ from traceback import print_exc
 import database
 from discord import app_commands
 from services.timezone_onboarding import timezone_prompt
+from services.group_logic import is_valid_allowed_skip_days, normalize_group_name, is_valid_group_name
 from utils.command_helpers import validate_role, is_command_in_server
 from utils.getters import get_user_id, get_display_name, get_guild_id
 from utils.time import get_utc_now_iso, get_local_today_iso
 # /src is the import root, so commands is a package and command_helpers is a module inside it
 
+# TODO make it cleaner: separate business logic into services/ directory and just handle discord related stuff in commands
 
 group = app_commands.Group(
     name="group",
@@ -17,33 +19,59 @@ group = app_commands.Group(
 
 
 # ============================================================================================
-@group.command(name="checkin", description="Log your habit in a joined group.")
-async def checkin(interaction: discord.Interaction, group_name: str, note: str):
-    
-    if not await is_command_in_server(interaction):
-        return
-    
-    group_name = group_name.strip().upper()
+async def get_group_or_respond(interaction: discord.Interaction, group_name: str):
     guild_id = get_guild_id(interaction)
-    user_id = get_user_id(interaction)
-    display_name = get_display_name(interaction)
     
-    group = await database.db_get_group_by_id_name(guild_id, group_name)
+    group_row = await database.db_get_group_by_id_name(guild_id, group_name)
     
-    if group is None:
-        await interaction.response.send_message(f"**{group_name}** does not exist in this server.", ephemeral=True)
-        return
+    if group_row is None:
+        await interaction.response.send_message(
+            f"**{group_name}** does not exist in this server.",
+            ephemeral=True
+        )
+        return None
     
-    group_id = group["id"]
-    allowed_skip_days = database.db_get_skip_days(guild_id, group_name)
+    return group_row
+# ============================================================================================
+
+
+# ============================================================================================
+async def require_group_member(interaction: discord.Interaction, guild_id: int, group_id: int, group_name: str, user_id: int) -> bool:
     
-    is_member = await database.db_is_user_member(guild_id=guild_id, group_id=group_id, user_id=user_id)
+    is_member = await database.db_is_user_member(guild_id, group_id, user_id)
     
     if not is_member:
         await interaction.response.send_message(
             f"You are not a member of **{group_name}**. Join first with `/group join {group_name}`.",
             ephemeral=True
         )
+        return False
+    
+    return True
+# ============================================================================================
+
+
+# ============================================================================================
+@group.command(name="checkin", description="Log your habit in a joined group.")
+async def checkin(interaction: discord.Interaction, group_name: str, note: str = ""):
+    
+    if not await is_command_in_server(interaction):
+        return
+    
+    group_name = normalize_group_name(group_name)
+    guild_id = get_guild_id(interaction)
+    user_id = get_user_id(interaction)
+    display_name = get_display_name(interaction)
+    
+    group_row = await get_group_or_respond(interaction, group_name)
+    
+    if group_row is None:
+        return
+    
+    group_id = group_row["id"]
+    allowed_skip_days = await database.db_get_skip_days(guild_id, group_name)
+    
+    if not await require_group_member(interaction, guild_id, group_id, group_name, user_id):
         return
     
     user_tz = await database.db_get_user_timezone(user_id=user_id)
@@ -57,9 +85,6 @@ async def checkin(interaction: discord.Interaction, group_name: str, note: str):
     if already_checked_in:
         await interaction.response.send_message(f"You already checked in for **{group_name}** today.", ephemeral=True)
         return
-    
-    # TODO get note
-    note = "this is a note"
     
     try:
         await database.db_create_checkin(guild_id, group_id, user_id, note, checkin_date_local, checked_in_at_utc)
@@ -122,9 +147,9 @@ async def leave_group(interaction: discord.Interaction, name: str):
     group_name = name.strip().upper()
     guild_id = get_guild_id(interaction)
     
-    group_row = await database.db_get_group_by_id_name(guild_id, group_name)
+    group_row = await get_group_or_respond(interaction, group_name)
+    
     if group_row is None:
-        await interaction.response.send_message(f"**{group_name}** does not exist in this server.", ephemeral=True)
         return
     
     group_id = group_row["id"]
@@ -154,10 +179,11 @@ async def join_group(interaction: discord.Interaction, name: str):
     group_name = name.strip().upper()
     guild_id = interaction.guild_id
 
-    group_row = await database.db_get_group_by_id_name(guild_id, group_name)
+    group_row = await get_group_or_respond(interaction, group_name)
+    
     if group_row is None:
-        await interaction.response.send_message(f"**{group_name}** does not exist in this server.", ephemeral=True)
         return
+
     group_id = group_row["id"]
     
     user_display_name = get_display_name(interaction)
@@ -198,31 +224,55 @@ async def create_group(interaction: discord.Interaction, name: str, allowed_skip
     if not await is_command_in_server(interaction):
         return
     
-    if validate_role(interaction, ["Admin", "Mod"]):
-        group_name = name.strip().upper()
-        guild_id = get_guild_id(interaction)
-        created_by = get_user_id(interaction)
-        created_at = get_utc_now_iso()
-        try:
-            await database.db_add_user(user_id=created_by, created_at=created_at, timezone=None) # TODO implement INSERT OR IGNORE in db or update/insert function in db)
-            await database.db_create_group(guild_id, group_name, created_by, created_at, allowed_skip_days)
-            await interaction.response.send_message(f"Day One for group **{group_name}** has started!\nUser are allowed to skip check-ins for **{allowed_skip_days}** days without breaking their streak.", ephemeral=False)
-        except sqlite3.IntegrityError as e:
-            # ungraceful error for dev
-            print(f"DB IntegrityError while creating habit group **{group_name}**.")
-            print_exc()
-            
-            # graceful error for user
-            await interaction.response.send_message(f"**{group_name}** already exists in this server. Duplicate names are not allowed (for now).", ephemeral=True)
-            return
-
-        # test
-        row = await database.fetchone(
-            "SELECT id, guild_id, name, created_by, created_at, allowed_skip_days FROM habit_groups WHERE guild_id=? AND name=?",
-            (guild_id, group_name),
+    if not validate_role(interaction, ["Admin", "Mod"]):
+        await interaction.response.send_message(
+            "You need Admin/Mod role to create a group.",
+            ephemeral=True
         )
-        print("Inserted row:", dict(row) if row else None)
+        return
+    
+    if not is_valid_group_name(name):
+        await interaction.response.send_message(
+            f"Group names must be 2-16 characters long.",
+            ephemeral=True
+        )
+        return
+
+    group_name = normalize_group_name(name)
+    guild_id = get_guild_id(interaction)
+    created_by = get_user_id(interaction)
+    created_at = get_utc_now_iso()
+    
+    if not is_valid_allowed_skip_days(allowed_skip_days):
+        await interaction.response.send_message(
+            "Allowed skip days must be between 0 and 7.",
+            ephemeral=True
+        )
+        return
+    
+    try:
+        await database.db_add_user(user_id=created_by, created_at=created_at, timezone=None) # TODO implement INSERT OR IGNORE in db or update/insert function in db)
+        await database.db_create_group(guild_id, group_name, created_by, created_at, allowed_skip_days)
+    except sqlite3.IntegrityError as e:
+        # ungraceful error for dev
+        print(f"DB IntegrityError while creating habit group **{group_name}**.")
+        print_exc()
         
-    else:
-        await interaction.response.send_message("You need Admin/Mod to create a group", ephemeral=True)
+        # graceful error for user
+        await interaction.response.send_message(f"**{group_name}** already exists in this server. Duplicate names are not allowed (for now).", ephemeral=True)
+        return
+    
+    await interaction.response.send_message(
+        f"Day One for group **{group_name}** has started!\n"
+        f"User are allowed to skip check-ins for **{allowed_skip_days}** days without breaking their streak.",
+        ephemeral=False
+    )
+
+    # test
+    row = await database.fetchone(
+        "SELECT id, guild_id, name, created_by, created_at, allowed_skip_days FROM habit_groups WHERE guild_id=? AND name=?",
+        (guild_id, group_name),
+    )
+    print("Inserted row:", dict(row) if row else None)
+    
 # ============================================================================================
