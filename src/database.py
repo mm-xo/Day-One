@@ -539,6 +539,112 @@ async def dev_show_state(guild_id: int, group_name: str, user_id: int):
 # ============================================================================================
 
 
+# ============================================================================================
+async def dev_checkin_as(
+    guild_id: int,
+    group_name: str,
+    user_id: int,
+    note: str | None = None,
+):
+    """
+    Simulates a check-in as another user.
+    Auto-adds the user and membership if needed.
+    """
+    _ensure_dev_guild(guild_id)
+
+    now = datetime.now(timezone.utc).isoformat()
+    local_day = dev_get_today(guild_id)
+
+    group = await db_get_group_by_id_name(guild_id, group_name)
+
+    if group is None:
+        return {
+            "success": False,
+            "reason": "group_not_found",
+            "group_name": group_name,
+        }
+
+    group_id = group["id"]
+
+    await db_add_user(
+        user_id=user_id,
+        created_at=now,
+    )
+
+    is_member = await db_is_user_member(
+        guild_id=guild_id,
+        group_id=group_id,
+        user_id=user_id,
+    )
+
+    joined_user = False
+
+    if not is_member:
+        await db_create_member(
+            guild_id=guild_id,
+            group_id=group_id,
+            user_id=user_id,
+            joined_at=now,
+        )
+        joined_user = True
+
+    already_checked_in = await db_has_checkin_today(
+        guild_id=guild_id,
+        group_id=group_id,
+        user_id=user_id,
+        local_day=local_day,
+    )
+
+    if already_checked_in:
+        streak = await db_get_streak(
+            guild_id=guild_id,
+            group_id=group_id,
+            user_id=user_id,
+        )
+
+        return {
+            "success": False,
+            "reason": "already_checked_in",
+            "group_id": group_id,
+            "group_name": group["name"],
+            "user_id": user_id,
+            "local_day": local_day,
+            "joined_user": joined_user,
+            "current_streak": None if streak is None else streak["current"],
+            "best_streak": None if streak is None else streak["best"],
+            "last_checkin": None if streak is None else streak["last_checkin"],
+        }
+
+    await db_create_checkin(
+        guild_id=guild_id,
+        group_id=group_id,
+        user_id=user_id,
+        note=note,
+        local_day=local_day,
+        checkin_at=now,
+    )
+
+    current, best, streak_continued = await db_update_streak_after_checkin(
+        guild_id=guild_id,
+        group_id=group_id,
+        user_id=user_id,
+        local_day=local_day,
+        allowed_skip_days=group["allowed_skip_days"],
+    )
+
+    return {
+        "success": True,
+        "group_id": group_id,
+        "group_name": group["name"],
+        "user_id": user_id,
+        "local_day": local_day,
+        "joined_user": joined_user,
+        "current_streak": current,
+        "best_streak": best,
+        "streak_continued": streak_continued,
+    }
+# ============================================================================================
+
 
 # =============================================================
 # HELPERS

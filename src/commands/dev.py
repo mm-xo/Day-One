@@ -243,10 +243,89 @@ async def show_state(
 
 
 # ============================================================================================
+@dev_group.command(
+    name="checkin_as",
+    description="Simulate a check-in as another user.",
+)
+async def checkin_as(
+    interaction: discord.Interaction,
+    group_name: str,
+    user: discord.Member,
+    note: str | None = None,
+):
+    await interaction.response.defer(ephemeral=True)
 
+    try:
+        if not is_dev(interaction):
+            await interaction.followup.send("Dev command only.", ephemeral=True)
+            return
+
+        if interaction.guild_id is None:
+            await interaction.followup.send(
+                "This command can only be used in a server.",
+                ephemeral=True,
+            )
+            return
+
+        result = await database.dev_checkin_as(
+            guild_id=interaction.guild_id,
+            group_name=group_name,
+            user_id=user.id,
+            note=note,
+        )
+
+        if not result["success"]:
+            if result["reason"] == "group_not_found":
+                await interaction.followup.send(
+                    f"Group `{group_name}` was not found.",
+                    ephemeral=True,
+                )
+                return
+
+            if result["reason"] == "already_checked_in":
+                await interaction.followup.send(
+                    "\n".join(
+                        [
+                            "User already checked in today.",
+                            "",
+                            f"Group: `{result['group_name']}`",
+                            f"User: {user.mention}",
+                            f"Fake today: `{result['local_day']}`",
+                            f"Current streak: `{result['current_streak']}`",
+                            f"Best streak: `{result['best_streak']}`",
+                            f"Last check-in: `{result['last_checkin']}`",
+                        ]
+                    ),
+                    ephemeral=True,
+                )
+                return
+
+        await interaction.followup.send(
+            "\n".join(
+                [
+                    "Dev check-in complete.",
+                    "",
+                    f"Group: `{result['group_name']}`",
+                    f"Group ID: `{result['group_id']}`",
+                    f"User: {user.mention}",
+                    f"Fake today: `{result['local_day']}`",
+                    f"Auto-joined user: `{result['joined_user']}`",
+                    "",
+                    f"Current streak: `{result['current_streak']}`",
+                    f"Best streak: `{result['best_streak']}`",
+                    f"Streak continued: `{result['streak_continued']}`",
+                ]
+            ),
+            ephemeral=True,
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+
+        await interaction.followup.send(
+            f"checkin_as failed:\n```py\n{type(e).__name__}: {e}\n```",
+            ephemeral=True,
+        )
 # ============================================================================================
 
-
-# ============================================================================================
-
-# ============================================================================================
