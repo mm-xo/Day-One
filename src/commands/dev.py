@@ -117,4 +117,68 @@ async def set_today(interaction: discord.Interaction, day: str,):
 # ============================================================================================
 
 
+# ============================================================================================
+@dev_group.command(
+    name="advance_days",
+    description="Move the fake current date forward or backward.",
+)
+async def advance_days(
+    interaction: discord.Interaction,
+    days: int,
+):
+    await interaction.response.defer(ephemeral=True)
 
+    try:
+        if not is_dev(interaction):
+            await interaction.followup.send("Dev command only.", ephemeral=True)
+            return
+
+        if interaction.guild_id is None:
+            await interaction.followup.send(
+                "This command can only be used in a server.",
+                ephemeral=True,
+            )
+            return
+
+        result = await database.dev_advance_days(
+            guild_id=interaction.guild_id,
+            days=days,
+        )
+
+        await interaction.followup.send(
+            "\n".join(
+                [
+                    "Fake date advanced.",
+                    "",
+                    f"Old today: `{result['old_today']}`",
+                    f"Days changed: `{result['days']}`",
+                    f"New today: `{result['new_today']}`",
+                ]
+            ),
+            ephemeral=True,
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+
+        await interaction.followup.send(
+            f"advance_days failed:\n```py\n{type(e).__name__}: {e}\n```",
+            ephemeral=True,
+        )
+# ============================================================================================
+
+
+# ============================================================================================
+
+# ============================================================================================
+
+
+# ============================================================================================
+
+# ============================================================================================
+
+
+# ============================================================================================
+
+# ============================================================================================

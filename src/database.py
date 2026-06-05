@@ -466,6 +466,25 @@ async def dev_set_today(guild_id: int, local_day: str):
 # ============================================================================================
 
 
+# ============================================================================================
+async def dev_advance_days(guild_id: int, days: int):
+    """
+    Moves the fake dev day forward or backward.
+    """
+    _ensure_dev_guild(guild_id)
+
+    current_day = date.fromisoformat(dev_get_today(guild_id))
+    new_day = current_day + timedelta(days=days)
+
+    _dev_today_overrides[guild_id] = new_day.isoformat()
+
+    return {
+        "old_today": current_day.isoformat(),
+        "new_today": new_day.isoformat(),
+        "days": days,
+    }
+# ============================================================================================
+
 
 # =============================================================
 # HELPERS
