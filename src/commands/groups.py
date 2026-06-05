@@ -11,6 +11,7 @@ from utils.time import get_utc_now_iso, get_local_today_iso
 # /src is the import root, so commands is a package and command_helpers is a module inside it
 
 # TODO make it cleaner: separate business logic into services/ directory and just handle discord related stuff in commands
+# Also make file(s) for constants
 
 group = app_commands.Group(
     name="group",
@@ -201,7 +202,7 @@ async def join_group(interaction: discord.Interaction, name: str):
         await interaction.response.send_message(f"You are already a member in **{group_name}**.", ephemeral=True)
         return
     else:
-        await interaction.response.send_message(f"Welcome {user_display_name} to your Day One in **{group_name}**!", ephemeral=False)
+        await interaction.response.send_message(f"Welcome {user_display_name}, to your Day One in **{group_name}**!", ephemeral=False)
         await timezone_prompt(interaction)
 
     #test
