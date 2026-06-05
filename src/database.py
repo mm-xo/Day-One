@@ -486,6 +486,60 @@ async def dev_advance_days(guild_id: int, days: int):
 # ============================================================================================
 
 
+# ============================================================================================
+async def dev_show_state(guild_id: int, group_name: str, user_id: int):
+    """
+    Shows useful debug state for one user in one group.
+    """
+    _ensure_dev_guild(guild_id)
+
+    group = await db_get_group_by_id_name(guild_id, group_name)
+
+    if group is None:
+        return {
+            "found_group": False,
+            "group_name": group_name,
+            "today": dev_get_today(guild_id),
+        }
+
+    group_id = group["id"]
+
+    is_member = await db_is_user_member(
+        guild_id=guild_id,
+        group_id=group_id,
+        user_id=user_id,
+    )
+
+    streak = await db_get_streak(
+        guild_id=guild_id,
+        group_id=group_id,
+        user_id=user_id,
+    )
+
+    has_checkin_today = await db_has_checkin_today(
+        guild_id=guild_id,
+        group_id=group_id,
+        user_id=user_id,
+        local_day=dev_get_today(guild_id),
+    )
+
+    return {
+        "found_group": True,
+        "group_id": group["id"],
+        "group_name": group["name"],
+        "allowed_skip_days": group["allowed_skip_days"],
+        "user_id": user_id,
+        "is_member": is_member,
+        "today": dev_get_today(guild_id),
+        "has_checkin_today": has_checkin_today,
+        "current_streak": None if streak is None else streak["current"],
+        "best_streak": None if streak is None else streak["best"],
+        "last_checkin": None if streak is None else streak["last_checkin"],
+    }
+# ============================================================================================
+
+
+
 # =============================================================
 # HELPERS
 # =============================================================

@@ -170,7 +170,75 @@ async def advance_days(
 
 
 # ============================================================================================
+@dev_group.command(
+    name="show_state",
+    description="Show debug state for a user in a group.",
+)
+async def show_state(
+    interaction: discord.Interaction,
+    group_name: str,
+    user: discord.Member | None = None,
+):
+    await interaction.response.defer(ephemeral=True)
 
+    try:
+        if not is_dev(interaction):
+            await interaction.followup.send("Dev command only.", ephemeral=True)
+            return
+
+        if interaction.guild_id is None:
+            await interaction.followup.send(
+                "This command can only be used in a server.",
+                ephemeral=True,
+            )
+            return
+
+        target_user = user or interaction.user
+
+        result = await database.dev_show_state(
+            guild_id=interaction.guild_id,
+            group_name=group_name,
+            user_id=target_user.id,
+        )
+
+        if not result["found_group"]:
+            await interaction.followup.send(
+                f"Group `{group_name}` was not found.\nFake today: `{result['today']}`",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.followup.send(
+            "\n".join(
+                [
+                    "Debug state:",
+                    "",
+                    f"Group: `{result['group_name']}`",
+                    f"Group ID: `{result['group_id']}`",
+                    f"Allowed skip days: `{result['allowed_skip_days']}`",
+                    "",
+                    f"User: {target_user.mention}",
+                    f"User ID: `{result['user_id']}`",
+                    f"Is member: `{result['is_member']}`",
+                    "",
+                    f"Fake today: `{result['today']}`",
+                    f"Checked in today: `{result['has_checkin_today']}`",
+                    f"Current streak: `{result['current_streak']}`",
+                    f"Best streak: `{result['best_streak']}`",
+                    f"Last check-in: `{result['last_checkin']}`",
+                ]
+            ),
+            ephemeral=True,
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+
+        await interaction.followup.send(
+            f"show_state failed:\n```py\n{type(e).__name__}: {e}\n```",
+            ephemeral=True,
+        )
 # ============================================================================================
 
 
