@@ -346,6 +346,7 @@ async def db_update_streak_after_checkin(guild_id, group_id, user_id, local_day,
 # DEV COMMAND HELPERS
 # =============================================================
 
+# ============================================================================================
 async def dev_reset_guild(guild_id):
     """
     Deletes all test data for one guild. Only works for the dev guild.
@@ -377,6 +378,56 @@ async def dev_reset_guild(guild_id):
     deleted_count["habit_groups_deleted_directly"] = deleted_habit_groups
     
     return deleted_count
+# ============================================================================================
+
+
+# ============================================================================================
+async def dev_seed_group(guild_id, group_name, created_by, allowed_skip_days=0, join_creator=True):
+    """
+    Creates a habit group for manual dev testing
+    """
+    
+    if guild_id != int(config.DEV_GUILD_ID):
+        raise PermissionError("dev_seed_group can only be run in the dev guild")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    await db_add_user(user_id=created_by, created_at=now)
+    
+    existing_group = await db_get_group_by_id_name(guild_id, group_name)
+    
+    created_new_group = existing_group is None
+    
+    if existing_group is None:
+        await db_create_group(guild_id, group_name, created_by, created_at=now, allowed_skip_days=allowed_skip_days)
+    
+        group = await db_get_group_by_id_name(guild_id, group_name)
+    else:
+        group = existing_group
+        
+    if group is None:
+        raise RuntimeError("Failed to create or fetch seeded group")
+    
+    group_id = group["id"]
+    
+    joined_creator = False
+    
+    if join_creator:
+        already_member = await db_is_user_member(guild_id, group_id, user_id=created_by)
+        
+        if not already_member:
+            await db_create_member(guild_id, group_id, user_id=created_by, joined_at=now)
+            joined_creator = True
+            
+    return {
+        "group_id": group_id,
+        "group_name": group_name,
+        "allowed_skip_days": group["allowed_skip_days"],
+        "created_new_group": created_new_group,
+        "joined_creator": joined_creator,
+    }
+# ============================================================================================
+
 
 # =============================================================
 # HELPERS
