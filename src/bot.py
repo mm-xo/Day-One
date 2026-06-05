@@ -48,7 +48,27 @@ async def on_ready():
     if user is None:
         raise RuntimeError("Bot is not initialized")
     print(f"Logged in as {user} (id={user.id})")
-    
+
+
+@bot.tree.error
+async def on_app_command_error(
+    interaction: discord.Interaction,
+    error: discord.app_commands.AppCommandError,
+):
+    import traceback
+
+    traceback.print_exception(type(error), error, error.__traceback__)
+
+    message = f"Command failed:\n```py\n{type(error).__name__}: {error}\n```"
+
+    try:
+        if interaction.response.is_done():
+            await interaction.followup.send(message, ephemeral=True)
+        else:
+            await interaction.response.send_message(message, ephemeral=True)
+    except Exception:
+        traceback.print_exc()
+        
 
 @bot.tree.command(name="ping", description="Check if the bot is alive.")
 async def ping(interaction: discord.Interaction):
