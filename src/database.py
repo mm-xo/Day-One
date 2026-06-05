@@ -2,7 +2,8 @@ from __future__ import annotations
 import aiosqlite
 import asyncio
 from pathlib import Path
-from datetime import date
+from datetime import date, datetime, timezone
+import config
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent # project root directory
@@ -340,6 +341,42 @@ async def db_update_streak_after_checkin(guild_id, group_id, user_id, local_day,
     return current, best, streak_continued
 # ============================================================================================
 
+
+# =============================================================
+# DEV COMMAND HELPERS
+# =============================================================
+
+async def dev_reset_guild(guild_id):
+    """
+    Deletes all test data for one guild. Only works for the dev guild.
+    """
+    
+    if guild_id != int(config.DEV_GUILD_ID):
+        raise PermissionError("dev_reset_guild can only run in the dev guild.")
+    
+    deleted_count = {}
+    
+    tables = ["habit_groups", "group_memberships", "checkins", "streaks"]
+    
+    await execute("PRAGMA foreign_keys = ON;")
+    
+    # Count rows before deleting, because CASCADE deletes child rows automatically
+    for table_name in tables:
+        row = await fetchone(
+            f"SELECT COUNT(*) FROM {table_name} WHERE guild_id = ?",
+            (guild_id,),
+        )
+        deleted_count[table_name] = row[0] if row is not None else 0
+    
+    # delete parent table
+    deleted_habit_groups = await execute(
+        "DELETE FROM habit_groups WHERE guild_id = ?",
+        (guild_id,),
+    )
+    
+    deleted_count["habit_groups_deleted_directly"] = deleted_habit_groups
+    
+    return deleted_count
 
 # =============================================================
 # HELPERS
