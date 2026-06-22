@@ -13,5 +13,8 @@ DEV_USER_IDS = {
     if user_id.strip()
 }
 
+DISCORD_LOG_CHANNEL_ID = int(os.getenv("DISCORD_LOG_CHANNEL_ID", "0"))
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
 if not DISCORD_TOKEN:
     raise RuntimeError("DISCORD_TOKEN is not set in .env")

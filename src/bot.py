@@ -5,6 +5,9 @@ import database
 from commands.groups import group as groups_command_group
 from commands.user import user_group
 from commands.dev import dev_group
+from utils.logger import setup_logging, set_discord_bot, get_logger
+
+logger = setup_logging()
 
 intents = discord.Intents.default()
 
@@ -29,25 +32,27 @@ class HabitBot(commands.Bot):
             self.tree.add_command(dev_group, guild=guild)
             
             await self.tree.sync(guild=guild)
-            print(f"Slash commands synced to guild {guild_id}.")
+            logger.info(f"Slash commands synced to dev guild {guild_id}.")
         else:
             # No dev guild means do NOT register dev commands
             await self.tree.sync()
-            print("Slash command tree synced globally.")
+            logger.info("Slash commands synced to globally.")
 
     async def close(self):
-        print("Closing bot...")
+        logger.info("Closing bot...")
         await database.close()
         await super().close()
 
 bot = HabitBot()
+set_discord_bot(bot)
 
 @bot.event
 async def on_ready():
     user = bot.user
     if user is None:
         raise RuntimeError("Bot is not initialized")
-    print(f"Logged in as {user} (id={user.id})")
+    
+    logger.info(f"Logged in as {user} (id={user.id})")
 
 
 @bot.tree.error
@@ -55,19 +60,35 @@ async def on_app_command_error(
     interaction: discord.Interaction,
     error: discord.app_commands.AppCommandError,
 ):
-    import traceback
+    command_name = interaction.command.name if interaction.command else "unknown"
 
-    traceback.print_exception(type(error), error, error.__traceback__)
+    logger.error(
+        "Slash command failed: command=%s user_id=%s guild_id=%s error_type=%s error=%s",
+        command_name,
+        interaction.user.id if interaction.user else "unknown",
+        interaction.guild_id,
+        type(error).__name__,
+        error,
+        exc_info=error,
+    )
 
-    message = f"Command failed:\n```py\n{type(error).__name__}: {error}\n```"
+    message = (
+        "Something went wrong while running this command. "
+        "The error has been logged."
+    )
 
     try:
         if interaction.response.is_done():
             await interaction.followup.send(message, ephemeral=True)
         else:
             await interaction.response.send_message(message, ephemeral=True)
-    except Exception:
-        traceback.print_exc()
+    except Exception as send_error:
+        logger.error(
+            "Failed to send command error response: command=%s error=%s",
+            command_name,
+            send_error,
+            exc_info=send_error,
+        )
         
 
 @bot.tree.command(name="ping", description="Check if the bot is alive.")
