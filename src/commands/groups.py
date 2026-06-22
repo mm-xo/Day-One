@@ -1,6 +1,5 @@
 import discord
 import sqlite3
-from traceback import print_exc
 import database
 from discord import app_commands
 from services.timezone_onboarding import timezone_prompt
@@ -8,10 +7,13 @@ from services.group_logic import is_valid_allowed_skip_days, normalize_group_nam
 from utils.command_helpers import validate_role, is_command_in_server
 from utils.getters import get_user_id, get_display_name, get_guild_id
 from utils.time import get_utc_now_iso, get_local_today_iso
+from utils.logger import get_logger
 # /src is the import root, so commands is a package and command_helpers is a module inside it
 
 # TODO make it cleaner: separate business logic into services/ directory and just handle discord related stuff in commands
 # Also make file(s) for constants
+
+logger = get_logger(__name__)
 
 group = app_commands.Group(
     name="group",
@@ -84,13 +86,36 @@ async def checkin(interaction: discord.Interaction, group_name: str, note: str =
     already_checked_in = await database.db_has_checkin_today(guild_id, group_id, user_id, checkin_date_local)
     
     if already_checked_in:
-        await interaction.response.send_message(f"You already checked in for **{group_name}** today.", ephemeral=True)
+        logger.info(
+            "Duplicate check-in blocked: user_id=%s guild_id=%s group_id=%s group_name=%s local_day=%s",
+            user_id,
+            guild_id,
+            group_id,
+            group_name,
+            checkin_date_local,
+        )
+        await interaction.response.send_message(
+            f"You already checked in for **{group_name}** today.",
+            ephemeral=True,
+        )
         return
     
     try:
         await database.db_create_checkin(guild_id, group_id, user_id, note, checkin_date_local, checked_in_at_utc)
+        
     except sqlite3.IntegrityError:
-        await interaction.response.send_message(f"You already checked in for **{group_name}** today.")
+        logger.info(
+            "Duplicate check-in blocked by DB constraint: user_id=%s guild_id=%s group_id=%s group_name=%s local_day=%s",
+            user_id,
+            guild_id,
+            group_id,
+            group_name,
+            checkin_date_local,
+        )
+        await interaction.response.send_message(
+            f"You already checked in for **{group_name}** today.",
+            ephemeral=True,
+        )
         return
     
     current, best, streak_continued = await database.db_update_streak_after_checkin(guild_id, group_id, user_id, checkin_date_local, allowed_skip_days)
@@ -108,6 +133,18 @@ async def checkin(interaction: discord.Interaction, group_name: str, note: str =
             f"Current streak: **{current}**\n"
             f"Longest streak: **{best}**"
         )
+        
+    logger.info(
+        "Check-in created: user_id=%s guild_id=%s group_id=%s group_name=%s local_day=%s current=%s best=%s continued=%s",
+        user_id,
+        guild_id,
+        group_id,
+        group_name,
+        checkin_date_local,
+        current,
+        best,
+        streak_continued,
+    )
     
     await interaction.response.send_message(message)
 # ============================================================================================
@@ -131,9 +168,17 @@ async def list_groups(interaction: discord.Interaction):
             available_groups += f"- {group_row["name"]}\n"
         available_groups += "\nPlease use `/group join [name]` to join."
         await interaction.response.send_message(available_groups, ephemeral=True)
-    except sqlite3.Error as e:
-        print("DB Error occured while serving /list command.")
-        print_exc()
+        
+    except sqlite3.Error:
+        logger.exception(
+            "Database error while listing groups: guild_id=%s user_id=%s",
+            get_guild_id(interaction),
+            get_user_id(interaction),
+        )
+        await interaction.response.send_message(
+            "Could not list groups right now. The error has been logged.",
+            ephemeral=True,
+        )
 # ============================================================================================
 
 
@@ -163,10 +208,27 @@ async def leave_group(interaction: discord.Interaction, name: str):
             await interaction.response.send_message(f"You are not a member in **{group_name}**. Please use `/join {group_name}` command to join.", ephemeral=True)
             return
         else:
+            logger.info(
+                "User left group: user_id=%s guild_id=%s group_id=%s group_name=%s",
+                user_id,
+                guild_id,
+                group_id,
+                group_name,
+            )
             await interaction.response.send_message(f"{display_name} has left **{group_name}**!")
-    except sqlite3.IntegrityError as e:
-        print(f"DB IntegrityError while leaving group {group_name}.")
-        print_exc()
+    
+    except sqlite3.IntegrityError:
+        logger.exception(
+            "Database integrity error while leaving group: user_id=%s guild_id=%s group_id=%s group_name=%s",
+            user_id,
+            guild_id,
+            group_id,
+            group_name,
+        )
+        await interaction.response.send_message(
+            "Could not leave the group right now. The error has been logged.",
+            ephemeral=True,
+        )
 # ============================================================================================
 
 
@@ -195,26 +257,32 @@ async def join_group(interaction: discord.Interaction, name: str):
     try:
         await database.db_add_user(user_id, created_at, timezone=None)
         await database.db_create_member(guild_id, group_id, user_id, joined_at)
-    except sqlite3.IntegrityError as e:
-        print(f"DB IntegrityError while joining group **{group_name}**.")
-        print_exc()
         
-        await interaction.response.send_message(f"You are already a member in **{group_name}**.", ephemeral=True)
+    except sqlite3.IntegrityError:
+        logger.info(
+            "Join blocked because user is already member or membership constraint failed: user_id=%s guild_id=%s group_id=%s group_name=%s",
+            user_id,
+            guild_id,
+            group_id,
+            group_name,
+        )
+
+        await interaction.response.send_message(
+            f"You are already a member in **{group_name}**.",
+            ephemeral=True,
+        )
         return
+    
     else:
+        logger.info(
+            "User joined group: user_id=%s guild_id=%s group_id=%s group_name=%s",
+            user_id,
+            guild_id,
+            group_id,
+            group_name,
+        )
         await interaction.response.send_message(f"Welcome {user_display_name}, to your Day One in **{group_name}**!", ephemeral=False)
         await timezone_prompt(interaction)
-
-    #test
-    row = await database.fetchone(
-        "SELECT id, guild_id, group_id, user_id, joined_at FROM group_memberships WHERE guild_id=? AND group_id=?",
-        (guild_id, group_id)
-    )
-    user_row = await database.fetchone(
-        "SELECT user_id, timezone, created_at, want_tz_prompts FROM users WHERE user_id=?",
-        (user_id,)
-    )
-    print("Inserted user:", dict(user_row) if user_row else None)
 # ============================================================================================
 
 
@@ -252,28 +320,34 @@ async def create_group(interaction: discord.Interaction, name: str, allowed_skip
         return
     
     try:
-        await database.db_add_user(user_id=created_by, created_at=created_at, timezone=None) # TODO implement INSERT OR IGNORE in db or update/insert function in db)
+        await database.db_add_user(user_id=created_by, created_at=created_at, timezone=None)
         await database.db_create_group(guild_id, group_name, created_by, created_at, allowed_skip_days)
-    except sqlite3.IntegrityError as e:
-        # ungraceful error for dev
-        print(f"DB IntegrityError while creating habit group **{group_name}**.")
-        print_exc()
         
-        # graceful error for user
-        await interaction.response.send_message(f"**{group_name}** already exists in this server. Duplicate names are not allowed (for now).", ephemeral=True)
+    except sqlite3.IntegrityError:
+        logger.info(
+            "Create group blocked because group already exists or constraint failed: user_id=%s guild_id=%s group_name=%s",
+            created_by,
+            guild_id,
+            group_name,
+        )
+
+        await interaction.response.send_message(
+            f"**{group_name}** already exists in this server. Duplicate names are not allowed.",
+            ephemeral=True,
+        )
         return
+    
+    logger.info(
+        "Group created: user_id=%s guild_id=%s group_name=%s allowed_skip_days=%s",
+        created_by,
+        guild_id,
+        group_name,
+        allowed_skip_days,
+    )
     
     await interaction.response.send_message(
         f"Day One for group **{group_name}** has started!\n"
-        f"User are allowed to skip check-ins for **{allowed_skip_days}** days without breaking their streak.",
+        f"Users are allowed to skip check-ins for **{allowed_skip_days}** days without breaking their streak.",
         ephemeral=False
     )
-
-    # test
-    row = await database.fetchone(
-        "SELECT id, guild_id, name, created_by, created_at, allowed_skip_days FROM habit_groups WHERE guild_id=? AND name=?",
-        (guild_id, group_name),
-    )
-    print("Inserted row:", dict(row) if row else None)
-    
 # ============================================================================================
