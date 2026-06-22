@@ -278,33 +278,56 @@ async def db_get_streak(guild_id, group_id, user_id):
 
 # ============================================================================================
 async def db_upsert_streak(
-    guild_id, group_id, user_id, current, best, last_checkin):
-    await execute(
+    guild_id,
+    group_id,
+    user_id,
+    current,
+    best,
+    last_checkin
+):
+    updated_rows = await execute(
         """
-        INSERT INTO streaks (
-            guild_id,
-            group_id,
-            user_id,
-            current,
-            best,
-            last_checkin
-        )
-        VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT(guild_id, group_id, user_id)
-        DO UPDATE SET
-            current = excluded.current,
-            best = excluded.best,
-            last_checkin = excluded.last_checkin
+        UPDATE streaks
+        SET
+            current = ?,
+            best = ?,
+            last_checkin = ?
+        WHERE guild_id = ?
+            AND group_id = ?
+            AND user_id = ?
         """,
         (
-            guild_id,
-            group_id,
-            user_id,
             current,
             best,
-            last_checkin
+            last_checkin,
+            guild_id,
+            group_id,
+            user_id
         )
     )
+
+    if updated_rows == 0:
+        await execute(
+            """
+            INSERT INTO streaks (
+                guild_id,
+                group_id,
+                user_id,
+                current,
+                best,
+                last_checkin
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                guild_id,
+                group_id,
+                user_id,
+                current,
+                best,
+                last_checkin
+            )
+        )
 # ============================================================================================
 
 
