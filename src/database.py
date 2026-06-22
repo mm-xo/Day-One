@@ -141,14 +141,17 @@ async def db_remove_member(guild_id, group_id, user_id):
 # ================================================================
 
 # ============================================================================================
-async def db_add_user(user_id, created_at, timezone=None): # Default timezone
+async def db_add_user(user_id, created_at, timezone=None):
     if timezone is None:
         await execute(
-            "INSERT OR IGNORE INTO users (user_id, created_at) VALUES (?,?);",
+            "INSERT OR IGNORE INTO users (user_id, created_at) VALUES (?, ?);",
             (user_id, created_at)
         )
     else:
-        pass # TODO
+        await execute(
+            "INSERT OR IGNORE INTO users (user_id, created_at, timezone) VALUES (?, ?, ?);",
+            (user_id, created_at, timezone)
+        )
 
     return True
 # ============================================================================================
@@ -156,8 +159,12 @@ async def db_add_user(user_id, created_at, timezone=None): # Default timezone
 
 # ============================================================================================
 async def db_get_user(user_id):
-    return await execute(
-        "SELECT user_id, timezone, created_at, want_tz_prompts FROM users WHERE user_id=?;",
+    return await fetchone(
+        """
+        SELECT user_id, timezone, created_at, want_tz_prompts
+        FROM users
+        WHERE user_id = ?
+        """,
         (user_id,)
     )
 # ============================================================================================
