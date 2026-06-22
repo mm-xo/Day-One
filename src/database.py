@@ -3,8 +3,10 @@ import aiosqlite
 import asyncio
 from pathlib import Path
 from datetime import date, datetime, timezone, timedelta
+from utils.logger import get_logger
 import config
 
+logger = get_logger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent # project root directory
 DB_PATH = BASE_DIR / "data" / "day_one.db"
@@ -36,7 +38,7 @@ async def init(bot=None):
     await db.executescript(schema_sql)
     await db.commit()
     
-    print("Database initialized successfully!")
+    logger.info("Database initialized successfully.")
 # ============================================================================================
 
 # ============================================================================================
@@ -747,4 +749,5 @@ async def close():
     if db is not None:
         await db.close()
         db = None
+        logger.info("Database connection closed.")
 # ============================================================================================

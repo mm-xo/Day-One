@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -126,7 +125,7 @@ def setup_logging() -> logging.Logger:
 
     if config.DISCORD_LOG_CHANNEL_ID:
         discord_handler = DiscordLogHandler(config.DISCORD_LOG_CHANNEL_ID)
-        discord_handler.setLevel(logging.WARNING)
+        discord_handler.setLevel(config.LOG_LEVEL)
         discord_handler.setFormatter(formatter)
 
         logger.addHandler(discord_handler)
