@@ -2,7 +2,7 @@ from __future__ import annotations
 import aiosqlite
 import asyncio
 from pathlib import Path
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 import config
 
 
@@ -141,14 +141,17 @@ async def db_remove_member(guild_id, group_id, user_id):
 # ================================================================
 
 # ============================================================================================
-async def db_add_user(user_id, created_at, timezone=None): # Default timezone
+async def db_add_user(user_id, created_at, timezone=None):
     if timezone is None:
         await execute(
-            "INSERT OR IGNORE INTO users (user_id, created_at) VALUES (?,?);",
+            "INSERT OR IGNORE INTO users (user_id, created_at) VALUES (?, ?);",
             (user_id, created_at)
         )
     else:
-        pass # TODO
+        await execute(
+            "INSERT OR IGNORE INTO users (user_id, created_at, timezone) VALUES (?, ?, ?);",
+            (user_id, created_at, timezone)
+        )
 
     return True
 # ============================================================================================
@@ -156,8 +159,12 @@ async def db_add_user(user_id, created_at, timezone=None): # Default timezone
 
 # ============================================================================================
 async def db_get_user(user_id):
-    return await execute(
-        "SELECT user_id, timezone, created_at, want_tz_prompts FROM users WHERE user_id=?;",
+    return await fetchone(
+        """
+        SELECT user_id, timezone, created_at, want_tz_prompts
+        FROM users
+        WHERE user_id = ?
+        """,
         (user_id,)
     )
 # ============================================================================================
@@ -265,7 +272,7 @@ async def db_get_streak(guild_id, group_id, user_id):
         SELECT
             current,
             best,
-            last_checkin,
+            last_checkin
         FROM streaks
         WHERE guild_id = ?
             AND group_id = ?
@@ -278,33 +285,56 @@ async def db_get_streak(guild_id, group_id, user_id):
 
 # ============================================================================================
 async def db_upsert_streak(
-    guild_id, group_id, user_id, current, best, last_checkin):
-    await execute(
+    guild_id,
+    group_id,
+    user_id,
+    current,
+    best,
+    last_checkin
+):
+    updated_rows = await execute(
         """
-        INSERT INTO streaks (
-            guild_id,
-            group_id,
-            user_id,
-            current,
-            best,
-            last_checkin
-        )
-        VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT(guild_id, group_id, user_id)
-        DO UPDATE SET
-            current = excluded.current,
-            best = excluded.best,
-            last_checkin = excluded.last_checkin
+        UPDATE streaks
+        SET
+            current = ?,
+            best = ?,
+            last_checkin = ?
+        WHERE guild_id = ?
+            AND group_id = ?
+            AND user_id = ?
         """,
         (
-            guild_id,
-            group_id,
-            user_id,
             current,
             best,
-            last_checkin
+            last_checkin,
+            guild_id,
+            group_id,
+            user_id
         )
     )
+
+    if updated_rows == 0:
+        await execute(
+            """
+            INSERT INTO streaks (
+                guild_id,
+                group_id,
+                user_id,
+                current,
+                best,
+                last_checkin
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                guild_id,
+                group_id,
+                user_id,
+                current,
+                best,
+                last_checkin
+            )
+        )
 # ============================================================================================
 
 
@@ -425,6 +455,223 @@ async def dev_seed_group(guild_id, group_name, created_by, allowed_skip_days=0, 
         "allowed_skip_days": group["allowed_skip_days"],
         "created_new_group": created_new_group,
         "joined_creator": joined_creator,
+    }
+# ============================================================================================
+
+
+_dev_today_overrides: dict[int, str] = {}
+
+# ============================================================================================
+def _ensure_dev_guild(guild_id: int):
+    if guild_id != int(config.DEV_GUILD_ID):
+        raise PermissionError("This dev helper can only run in the dev guild.")
+# ============================================================================================
+
+
+# ============================================================================================
+def dev_get_today(guild_id: int) -> str:
+    """
+    Returns the fake dev date if one is set.
+    Otherwise returns the real current date.
+    """
+    return _dev_today_overrides.get(guild_id, date.today().isoformat())
+# ============================================================================================
+
+
+# ============================================================================================
+async def dev_set_today(guild_id: int, local_day: str):
+    """
+    Sets the fake current day for dev testing.
+    """
+    _ensure_dev_guild(guild_id)
+
+    # Validate date format.
+    parsed_day = date.fromisoformat(local_day)
+
+    _dev_today_overrides[guild_id] = parsed_day.isoformat()
+
+    return {
+        "today": parsed_day.isoformat()
+    }
+# ============================================================================================
+
+
+# ============================================================================================
+async def dev_advance_days(guild_id: int, days: int):
+    """
+    Moves the fake dev day forward or backward.
+    """
+    _ensure_dev_guild(guild_id)
+
+    current_day = date.fromisoformat(dev_get_today(guild_id))
+    new_day = current_day + timedelta(days=days)
+
+    _dev_today_overrides[guild_id] = new_day.isoformat()
+
+    return {
+        "old_today": current_day.isoformat(),
+        "new_today": new_day.isoformat(),
+        "days": days,
+    }
+# ============================================================================================
+
+
+# ============================================================================================
+async def dev_show_state(guild_id: int, group_name: str, user_id: int):
+    """
+    Shows useful debug state for one user in one group.
+    """
+    _ensure_dev_guild(guild_id)
+
+    group = await db_get_group_by_id_name(guild_id, group_name)
+
+    if group is None:
+        return {
+            "found_group": False,
+            "group_name": group_name,
+            "today": dev_get_today(guild_id),
+        }
+
+    group_id = group["id"]
+
+    is_member = await db_is_user_member(
+        guild_id=guild_id,
+        group_id=group_id,
+        user_id=user_id,
+    )
+
+    streak = await db_get_streak(
+        guild_id=guild_id,
+        group_id=group_id,
+        user_id=user_id,
+    )
+
+    has_checkin_today = await db_has_checkin_today(
+        guild_id=guild_id,
+        group_id=group_id,
+        user_id=user_id,
+        local_day=dev_get_today(guild_id),
+    )
+
+    return {
+        "found_group": True,
+        "group_id": group["id"],
+        "group_name": group["name"],
+        "allowed_skip_days": group["allowed_skip_days"],
+        "user_id": user_id,
+        "is_member": is_member,
+        "today": dev_get_today(guild_id),
+        "has_checkin_today": has_checkin_today,
+        "current_streak": None if streak is None else streak["current"],
+        "best_streak": None if streak is None else streak["best"],
+        "last_checkin": None if streak is None else streak["last_checkin"],
+    }
+# ============================================================================================
+
+
+# ============================================================================================
+async def dev_checkin_as(
+    guild_id: int,
+    group_name: str,
+    user_id: int,
+    note: str | None = None,
+):
+    """
+    Simulates a check-in as another user.
+    Auto-adds the user and membership if needed.
+    """
+    _ensure_dev_guild(guild_id)
+
+    now = datetime.now(timezone.utc).isoformat()
+    local_day = dev_get_today(guild_id)
+
+    group = await db_get_group_by_id_name(guild_id, group_name)
+
+    if group is None:
+        return {
+            "success": False,
+            "reason": "group_not_found",
+            "group_name": group_name,
+        }
+
+    group_id = group["id"]
+
+    await db_add_user(
+        user_id=user_id,
+        created_at=now,
+    )
+
+    is_member = await db_is_user_member(
+        guild_id=guild_id,
+        group_id=group_id,
+        user_id=user_id,
+    )
+
+    joined_user = False
+
+    if not is_member:
+        await db_create_member(
+            guild_id=guild_id,
+            group_id=group_id,
+            user_id=user_id,
+            joined_at=now,
+        )
+        joined_user = True
+
+    already_checked_in = await db_has_checkin_today(
+        guild_id=guild_id,
+        group_id=group_id,
+        user_id=user_id,
+        local_day=local_day,
+    )
+
+    if already_checked_in:
+        streak = await db_get_streak(
+            guild_id=guild_id,
+            group_id=group_id,
+            user_id=user_id,
+        )
+
+        return {
+            "success": False,
+            "reason": "already_checked_in",
+            "group_id": group_id,
+            "group_name": group["name"],
+            "user_id": user_id,
+            "local_day": local_day,
+            "joined_user": joined_user,
+            "current_streak": None if streak is None else streak["current"],
+            "best_streak": None if streak is None else streak["best"],
+            "last_checkin": None if streak is None else streak["last_checkin"],
+        }
+
+    await db_create_checkin(
+        guild_id=guild_id,
+        group_id=group_id,
+        user_id=user_id,
+        note=note,
+        local_day=local_day,
+        checkin_at=now,
+    )
+
+    current, best, streak_continued = await db_update_streak_after_checkin(
+        guild_id=guild_id,
+        group_id=group_id,
+        user_id=user_id,
+        local_day=local_day,
+        allowed_skip_days=group["allowed_skip_days"],
+    )
+
+    return {
+        "success": True,
+        "group_id": group_id,
+        "group_name": group["name"],
+        "user_id": user_id,
+        "local_day": local_day,
+        "joined_user": joined_user,
+        "current_streak": current,
+        "best_streak": best,
+        "streak_continued": streak_continued,
     }
 # ============================================================================================
 
