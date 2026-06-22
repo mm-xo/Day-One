@@ -374,6 +374,125 @@ async def db_update_streak_after_checkin(guild_id, group_id, user_id, local_day,
 # ============================================================================================
 
 
+# ================================================================
+# LEADERBOARD
+# ================================================================
+
+# ============================================================================================
+async def db_get_group_leaderboard(guild_id: int, group_id: int):
+    """
+    Returns leaderboard rows for one group.
+
+    Ranking:
+    1. current streak
+    2. check-ins in last 7 days
+    3. best streak
+    4. most recent check-in
+    """
+
+    today = date.fromisoformat(dev_get_today(guild_id))
+    start_day = (today - timedelta(days=6)).isoformat()
+
+    return await fetchall(
+        """
+        SELECT
+            gm.user_id,
+            COALESCE(s.current, 0) AS current_streak,
+            COALESCE(s.best, 0) AS best_streak,
+            s.last_checkin,
+            COUNT(DISTINCT c.local_day) AS weekly_checkins
+        FROM group_memberships gm
+        LEFT JOIN streaks s
+            ON s.guild_id = gm.guild_id
+            AND s.group_id = gm.group_id
+            AND s.user_id = gm.user_id
+        LEFT JOIN checkins c
+            ON c.guild_id = gm.guild_id
+            AND c.group_id = gm.group_id
+            AND c.user_id = gm.user_id
+            AND c.local_day >= ?
+        WHERE gm.guild_id = ?
+            AND gm.group_id = ?
+        GROUP BY
+            gm.user_id,
+            s.current,
+            s.best,
+            s.last_checkin
+        ORDER BY
+            current_streak DESC,
+            weekly_checkins DESC,
+            best_streak DESC,
+            last_checkin DESC
+        """,
+        (start_day, guild_id, group_id)
+    )
+# ============================================================================================
+
+
+# ================================================================
+# GROUP STATS
+# ================================================================
+
+# ============================================================================================
+async def db_get_group_member_stats(guild_id: int, group_id: int, user_id: int):
+    """
+    Returns one user's stats inside one habit group.
+    Returns None if the user is not a member of the group.
+    """
+
+    today = date.fromisoformat(dev_get_today(guild_id))
+    today_str = today.isoformat()
+    start_day = (today - timedelta(days=6)).isoformat()
+
+    return await fetchone(
+        """
+        SELECT
+            gm.user_id,
+            gm.joined_at,
+
+            COALESCE(s.current, 0) AS current_streak,
+            COALESCE(s.best, 0) AS best_streak,
+            s.last_checkin,
+
+            COUNT(DISTINCT c.local_day) AS total_checkins,
+
+            COUNT(DISTINCT CASE
+                WHEN c.local_day >= ? THEN c.local_day
+            END) AS weekly_checkins,
+
+            MAX(CASE
+                WHEN c.local_day = ? THEN 1
+                ELSE 0
+            END) AS checked_in_today
+
+        FROM group_memberships gm
+
+        LEFT JOIN streaks s
+            ON s.guild_id = gm.guild_id
+            AND s.group_id = gm.group_id
+            AND s.user_id = gm.user_id
+
+        LEFT JOIN checkins c
+            ON c.guild_id = gm.guild_id
+            AND c.group_id = gm.group_id
+            AND c.user_id = gm.user_id
+
+        WHERE gm.guild_id = ?
+            AND gm.group_id = ?
+            AND gm.user_id = ?
+
+        GROUP BY
+            gm.user_id,
+            gm.joined_at,
+            s.current,
+            s.best,
+            s.last_checkin
+        """,
+        (start_day, today_str, guild_id, group_id, user_id)
+    )
+# ============================================================================================
+
+
 # =============================================================
 # DEV COMMAND HELPERS
 # =============================================================

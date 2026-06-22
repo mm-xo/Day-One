@@ -4,7 +4,7 @@ import database
 from discord import app_commands
 from services.timezone_onboarding import timezone_prompt
 from services.group_logic import is_valid_allowed_skip_days, normalize_group_name, is_valid_group_name
-from utils.command_helpers import validate_role, is_command_in_server
+from utils.command_helpers import validate_role, build_group_stats_embed, is_command_in_server, get_leaderboard_display_names, LeaderboardPaginationView
 from utils.getters import get_user_id, get_display_name, get_guild_id
 from utils.time import get_utc_now_iso, get_local_today_iso
 from utils.logger import get_logger
@@ -349,5 +349,137 @@ async def create_group(interaction: discord.Interaction, name: str, allowed_skip
         f"Day One for group **{group_name}** has started!\n"
         f"Users are allowed to skip check-ins for **{allowed_skip_days}** days without breaking their streak.",
         ephemeral=False
+    )
+# ============================================================================================
+
+
+# ============================================================================================
+@group.command(
+    name="leaderboard",
+    description="Show group progress and streak rankings."
+)
+async def leaderboard(interaction: discord.Interaction, group_name: str):
+    await interaction.response.defer()
+
+    guild_id = interaction.guild_id
+    guild = interaction.guild
+    group_name=group_name.upper()
+
+    if guild_id is None or guild is None:
+        await interaction.followup.send(
+            "This command can only be used inside a server.",
+            ephemeral=True,
+        )
+        return
+
+    group = await database.db_get_group_by_id_name(
+        guild_id=guild_id,
+        name=group_name,
+    )
+
+    if group is None:
+        await interaction.followup.send(
+            f"I could not find a group named `{group_name}`.",
+            ephemeral=True,
+        )
+        return
+
+    rows = await database.db_get_group_leaderboard(
+        guild_id=guild_id,
+        group_id=group["id"],
+    )
+
+    display_names = await get_leaderboard_display_names(
+        guild=guild,
+        rows=rows,
+    )
+
+    view = LeaderboardPaginationView(
+        group_name=group["name"],
+        rows=rows,
+        display_names=display_names,
+        page_size=5,
+    )
+
+    if view.total_pages > 1:
+        await interaction.followup.send(
+            embed=view.make_embed(),
+            view=view,
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+    else:
+        await interaction.followup.send(
+            embed=view.make_embed(),
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+# ============================================================================================
+
+
+# ============================================================================================
+@group.command(
+    name="stats",
+    description="Show your stats in a habit group."
+)
+async def stats(
+    interaction: discord.Interaction,
+    group_name: str,
+    member: discord.Member | None = None,
+):
+    await interaction.response.defer()
+
+    guild_id = interaction.guild_id
+    group_name=group_name.upper()
+
+    if guild_id is None:
+        await interaction.followup.send(
+            "This command can only be used inside a server.",
+            ephemeral=True,
+        )
+        return
+
+    group = await database.db_get_group_by_id_name(
+        guild_id=guild_id,
+        name=group_name,
+    )
+
+    if group is None:
+        await interaction.followup.send(
+            f"I could not find a group named `{group_name}`.",
+            ephemeral=True,
+        )
+        return
+
+    target = member or interaction.user
+    target_user_id = target.id
+
+    display_name = getattr(target, "display_name", target.name)
+
+    stats_row = await database.db_get_group_member_stats(
+        guild_id=guild_id,
+        group_id=group["id"],
+        user_id=target_user_id,
+    )
+
+    if stats_row is None:
+        if target_user_id == interaction.user.id:
+            message = f"You are not a member of `{group['name']}`."
+        else:
+            message = f"`{display_name}` is not a member of `{group['name']}`."
+
+        await interaction.followup.send(
+            message,
+            ephemeral=True,
+        )
+        return
+
+    embed = build_group_stats_embed(
+        group_name=group["name"],
+        display_name=display_name,
+        stats_row=stats_row,
+    )
+
+    await interaction.followup.send(
+        embed=embed,
+        allowed_mentions=discord.AllowedMentions.none(),
     )
 # ============================================================================================
