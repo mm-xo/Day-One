@@ -51,7 +51,7 @@ async def seed_group(interaction: discord.Interaction, name: str, allowed_skip_d
     
     result = await database.dev_seed_group(
         guild_id=interaction.guild_id,
-        group_name=name,
+        group_name=name.upper(),
         created_by=interaction.user.id,
         allowed_skip_days=allowed_skip_days,
         join_creator=join_me
@@ -197,7 +197,7 @@ async def show_state(
 
         result = await database.dev_show_state(
             guild_id=interaction.guild_id,
-            group_name=group_name,
+            group_name=group_name.upper(),
             user_id=target_user.id,
         )
 
@@ -269,7 +269,7 @@ async def checkin_as(
 
         result = await database.dev_checkin_as(
             guild_id=interaction.guild_id,
-            group_name=group_name,
+            group_name=group_name.upper(),
             user_id=user.id,
             note=note,
         )
