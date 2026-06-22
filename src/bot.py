@@ -5,6 +5,7 @@ import database
 from commands.groups import group as groups_command_group
 from commands.user import user_group
 from commands.dev import dev_group
+from commands.help import help_command
 from utils.logger import setup_logging, set_discord_bot, get_logger
 
 logger = setup_logging()
@@ -20,6 +21,7 @@ class HabitBot(commands.Bot):
         
         self.tree.add_command(groups_command_group)
         self.tree.add_command(user_group)
+        self.tree.add_command(help_command)
         
         guild_id = int(config.DEV_GUILD_ID)
         

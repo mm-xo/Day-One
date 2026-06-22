@@ -475,3 +475,94 @@ async def test_log(interaction: discord.Interaction):
         ephemeral=True,
     )
 # ============================================================================================
+
+
+# ============================================================================================
+@dev_group.command(
+    name="help",
+    description="Show all dev commands."
+)
+async def dev_help(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+
+    if not is_dev(interaction):
+        await interaction.followup.send("Dev command only.", ephemeral=True)
+        return
+
+    embed = discord.Embed(
+        title="Day One Dev Help",
+        description="Developer-only commands for manual testing.",
+        color=discord.Color.dark_gray()
+    )
+
+    embed.add_field(
+        name="/dev reset",
+        value=(
+            "Reset all test data in the dev guild.\n"
+            "`/dev reset`"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="/dev seed_group",
+        value=(
+            "Create or reuse a test habit group.\n"
+            "`/dev seed_group name:<group_name> allowed_skip_days:<days> join_me:<true/false>`\n"
+            "Example: `/dev seed_group name:GYM allowed_skip_days:1 join_me:true`"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="/dev set_today",
+        value=(
+            "Set the fake current date for dev testing.\n"
+            "`/dev set_today day:<YYYY-MM-DD>`\n"
+            "Example: `/dev set_today day:2026-06-22`"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="/dev advance_days",
+        value=(
+            "Move the fake current date forward or backward.\n"
+            "`/dev advance_days days:<number>`\n"
+            "Example: `/dev advance_days days:1`\n"
+            "Example: `/dev advance_days days:-1`"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="/dev show_state",
+        value=(
+            "Show debug state for a user in a group.\n"
+            "`/dev show_state group_name:<group_name> user:<optional_user>`\n"
+            "Example: `/dev show_state group_name:GYM`"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="/dev checkin_as",
+        value=(
+            "Simulate a check-in as another user.\n"
+            "`/dev checkin_as group_name:<group_name> user:<member> note:<optional_note>`\n"
+            "Example: `/dev checkin_as group_name:GYM user:@Max note:done`"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="/dev test_log",
+        value=(
+            "Send test logs to check the logger system.\n"
+            "`/dev test_log`"
+        ),
+        inline=False
+    )
+
+    await interaction.followup.send(embed=embed, ephemeral=True)
+# ============================================================================================
