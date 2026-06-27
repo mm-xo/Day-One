@@ -19,7 +19,20 @@ jobs:
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --locked
+
+      - name: Create test environment file
+        run: |
+          cat > .env << 'ENVEOF'
+          DISCORD_TOKEN=fake-token-for-ci
+          DEV_GUILD_ID=0
+          SYNC_GLOBAL_COMMANDS=false
+          DB_PATH=/tmp/day_one_test.db
+          LOG_LEVEL=INFO
+          DISCORD_LOG_CHANNEL_ID=0
+          ADMIN_ROLES=
+          DEV_USER_IDS=
+          ENVEOF
 
       - name: Run tests
         run: uv run pytest
