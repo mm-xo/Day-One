@@ -302,7 +302,7 @@ async def create_group(interaction: discord.Interaction, name: str, allowed_skip
     
     if not is_valid_group_name(name):
         await interaction.response.send_message(
-            f"Group names must be 2-16 characters long.",
+            "Group names must be 2–16 characters and can only use letters, numbers, spaces, hyphens, or underscores.",
             ephemeral=True
         )
         return
