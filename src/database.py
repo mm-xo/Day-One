@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import os
 import aiosqlite
 import asyncio
 from pathlib import Path
@@ -9,7 +11,7 @@ import config
 logger = get_logger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent # project root directory
-DB_PATH = BASE_DIR / "data" / "day_one.db"
+DB_PATH = Path(os.getenv("DB_PATH", BASE_DIR / "data" / "day_one.db"))
 SCHEMA_PATH = BASE_DIR / "src" / "schema.sql"
 
 

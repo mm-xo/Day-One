@@ -1,0 +1,10 @@
+services:
+  day-one:
+    build: .
+    container_name: day-one
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
