@@ -23,22 +23,24 @@ class HabitBot(commands.Bot):
         self.tree.add_command(user_group)
         self.tree.add_command(help_command)
         
-        guild_id = int(config.DEV_GUILD_ID)
+        dev_guild_id = int(config.DEV_GUILD_ID or 0)
+        sync_global = config.SYNC_GLOBAL_COMMANDS
         
-        if guild_id:
-            guild = discord.Object(id=guild_id)
-            # Copy normal global commands to dev guild
+        if sync_global:
+            await self.tree.sync()
+            logger.info("Global slash commands synced.")
+        
+        if dev_guild_id:
+            guild = discord.Object(id=dev_guild_id)
+            
+            # copy public commands to dev guild
             self.tree.copy_global_to(guild=guild)
             
-            # add dev commands ONLY to dev guild
+            # add dev commands only to dev guild
             self.tree.add_command(dev_group, guild=guild)
             
             await self.tree.sync(guild=guild)
-            logger.info(f"Slash commands synced to dev guild {guild_id}.")
-        else:
-            # No dev guild means do NOT register dev commands
-            await self.tree.sync()
-            logger.info("Slash commands synced to globally.")
+            logger.info(f"Dev slash commands synced to guild {dev_guild_id}.")
 
     async def close(self):
         logger.info("Closing bot...")
