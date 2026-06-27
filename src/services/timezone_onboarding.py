@@ -15,10 +15,22 @@ async def timezone_prompt(interaction):
 
 
 # ============================================================================================
-def validate_timezone(tz_str):
+def validate_timezone(timezone: str) -> bool:
+    if timezone is None:
+        return False
+
+    timezone = timezone.strip()
+
+    if not timezone:
+        return False
+
+    # Accept common lowercase UTC input.
+    if timezone.lower() == "utc":
+        timezone = "UTC"
+
     try:
-        ZoneInfo(tz_str)
+        ZoneInfo(timezone)
         return True
-    except ZoneInfoNotFoundError as e:
+    except ZoneInfoNotFoundError:
         return False
 # ============================================================================================
