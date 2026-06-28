@@ -3,6 +3,8 @@ data/
 *.db
 *.sqlite
 *.sqlite3
+backups/
+*.db.gz
 
 # Python
 __pycache__/
