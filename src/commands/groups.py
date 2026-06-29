@@ -373,6 +373,8 @@ async def delete(interaction: discord.Interaction, group_name: str, confirm: boo
             ephemeral=True
         )
         return
+    
+    group_name = group_name.upper()
 
     if not is_valid_group_name(group_name):
         await interaction.response.send_message(
