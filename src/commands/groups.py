@@ -359,6 +359,68 @@ async def create_group(interaction: discord.Interaction, name: str, allowed_skip
 
 # ============================================================================================
 @group.command(
+    name="delete",
+    description="Delete a habit group."
+)
+async def delete(interaction: discord.Interaction, group_name: str, confirm: bool = False):
+
+    if not await is_command_in_server(interaction):
+        return
+
+    if not validate_role(interaction, config.ADMIN_ROLES):
+        await interaction.response.send_message(
+            "You need an Admin/Mod role to delete a group.",
+            ephemeral=True
+        )
+        return
+
+    if not is_valid_group_name(group_name):
+        await interaction.response.send_message(
+            "Invalid group name.",
+            ephemeral=True
+        )
+        return
+
+    if not confirm:
+        await interaction.response.send_message(
+            f"Deleting `{group_name}` will remove the group and its related check-ins, memberships, and streak data.\n\n"
+            f"Run the command again with `confirm: True` to delete it.",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True)
+
+    deleted_counts = await database.db_delete_group(
+        guild_id=interaction.guild_id,
+        group_name=group_name
+    )
+
+    if deleted_counts is None:
+        await interaction.followup.send(
+            f"No group named `{group_name}` was found.",
+            ephemeral=True
+        )
+        return
+
+    lines = [
+        f"Deleted group `{group_name}`.",
+        "",
+        "Deleted rows:"
+    ]
+
+    for table_name, count in deleted_counts.items():
+        lines.append(f"- `{table_name}`: `{count}`")
+
+    await interaction.followup.send(
+        "\n".join(lines),
+        ephemeral=True
+    )
+# ============================================================================================
+
+
+# ============================================================================================
+@group.command(
     name="leaderboard",
     description="Show group progress and streak rankings."
 )

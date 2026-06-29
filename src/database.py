@@ -111,7 +111,47 @@ async def db_get_guild_groups(guild_id):
 # ============================================================================================
 
 
-# TODO delete group (row from habit_groups table)
+# ============================================================================================
+async def db_delete_group(guild_id, group_name):
+    group = await db_get_group_by_id_name(guild_id, group_name)
+
+    if group is None:
+        return None
+
+    group_id = group["id"]
+
+    deleted_count = {}
+
+    await execute("PRAGMA foreign_keys = ON;")
+
+    deleted_count["habit_groups"] = 1
+
+    for table_name in ["group_memberships", "checkins", "streaks"]:
+        row = await fetchone(
+            f"""
+            SELECT COUNT(*)
+            FROM {table_name}
+            WHERE guild_id = ?
+                AND group_id = ?
+            """,
+            (guild_id, group_id)
+        )
+
+        deleted_count[table_name] = row[0] if row is not None else 0
+
+    deleted_habit_groups = await execute(
+        """
+        DELETE FROM habit_groups
+        WHERE guild_id = ?
+            AND id = ?
+        """,
+        (guild_id, group_id)
+    )
+
+    deleted_count["habit_groups_deleted_directly"] = deleted_habit_groups
+
+    return deleted_count
+# ============================================================================================
 
 
 
