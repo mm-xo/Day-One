@@ -297,7 +297,7 @@ async def create_group(interaction: discord.Interaction, name: str, allowed_skip
     if not await is_command_in_server(interaction):
         return
     
-    if not validate_role(interaction, ["Admin", "Mod"]):
+    if not validate_role(interaction, config.ADMIN_ROLES):
         await interaction.response.send_message(
             "You need Admin/Mod role to create a group.",
             ephemeral=True

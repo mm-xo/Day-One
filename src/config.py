@@ -6,7 +6,12 @@ load_dotenv()
 SYNC_GLOBAL_COMMANDS = os.getenv("SYNC_GLOBAL_COMMANDS", "false").lower() == "true"
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 DEV_GUILD_ID = int(os.getenv("DEV_GUILD_ID", "0"))
-ADMIN_ROLES = os.getenv("ADMIN_ROLES")
+
+ADMIN_ROLES = [
+    role.strip()
+    for role in os.getenv("ADMIN_ROLES", "").split(",")
+    if role.strip()
+]
 
 DEV_USER_IDS = {
     int(user_id.strip())
