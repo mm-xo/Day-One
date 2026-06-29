@@ -24,6 +24,17 @@ class HabitBot(commands.Bot):
         self.tree.add_command(help_command)
         
         dev_guild_id = int(config.DEV_GUILD_ID or 0)
+        
+        # clear duplicate commands from dev server
+        if dev_guild_id:
+            guild = discord.Object(id=dev_guild_id)
+
+            self.tree.clear_commands(guild=guild)
+            await self.tree.sync(guild=guild)
+
+            logger.warning("Cleared dev guild slash commands.")
+            return
+        
         sync_global = config.SYNC_GLOBAL_COMMANDS
         
         if sync_global:
@@ -32,9 +43,6 @@ class HabitBot(commands.Bot):
         
         if dev_guild_id:
             guild = discord.Object(id=dev_guild_id)
-            
-            # copy public commands to dev guild
-            self.tree.copy_global_to(guild=guild)
             
             # add dev commands only to dev guild
             self.tree.add_command(dev_group, guild=guild)
