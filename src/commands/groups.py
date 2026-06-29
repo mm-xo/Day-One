@@ -1,6 +1,7 @@
 import discord
 import sqlite3
 import database
+import config
 from discord import app_commands
 from services.timezone_onboarding import timezone_prompt
 from services.group_logic import is_valid_allowed_skip_days, normalize_group_name, is_valid_group_name
@@ -79,7 +80,10 @@ async def checkin(interaction: discord.Interaction, group_name: str, note: str =
     
     user_tz = await database.db_get_user_timezone(user_id=user_id)
     
-    checkin_date_local = get_local_today_iso(user_tz)
+    if guild_id == int(config.DEV_GUILD_ID):
+        checkin_date_local = database.dev_get_today(guild_id)
+    else:
+        checkin_date_local = get_local_today_iso(user_tz)
     
     checked_in_at_utc = get_utc_now_iso()
     
