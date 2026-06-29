@@ -412,7 +412,7 @@ async def db_get_group_leaderboard(guild_id: int, group_id: int):
             ON c.guild_id = gm.guild_id
             AND c.group_id = gm.group_id
             AND c.user_id = gm.user_id
-            AND c.local_day >= ?
+            AND c.local_day BETWEEN ? AND ?
         WHERE gm.guild_id = ?
             AND gm.group_id = ?
         GROUP BY
@@ -426,7 +426,7 @@ async def db_get_group_leaderboard(guild_id: int, group_id: int):
             best_streak DESC,
             last_checkin DESC
         """,
-        (start_day, guild_id, group_id)
+        (start_day, today.isoformat(), guild_id, group_id)
     )
 # ============================================================================================
 
@@ -529,6 +529,8 @@ async def dev_reset_guild(guild_id):
     )
     
     deleted_count["habit_groups_deleted_directly"] = deleted_habit_groups
+    
+    _dev_today_overrides.pop(guild_id, None)
     
     return deleted_count
 # ============================================================================================
