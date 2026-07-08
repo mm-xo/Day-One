@@ -286,7 +286,7 @@ async def join_group(interaction: discord.Interaction, name: str):
             group_name,
         )
         
-        allowed_skip_days = database.db_get_skip_days(guild_id, group_name)
+        allowed_skip_days = await database.db_get_skip_days(guild_id, group_name)
         
         await interaction.response.send_message(f"Welcome {user_display_name}, to your Day One in **{group_name}**!\n"
                                                 f"You are allowed to skip check-ins for **{allowed_skip_days}** days without breaking your streak."
